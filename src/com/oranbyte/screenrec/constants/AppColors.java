@@ -33,4 +33,7 @@ public final class AppColors {
 	public static final Color BUTTON = SURFACE;
 	public static final Color BUTTON_HOVER = new Color(0xF7F7F7);
 	public static final Color BUTTON_PRESSED = new Color(0xECECEC);
+
+	public static final Color SELECTION_OUTLINE_COLOR = Color.WHITE;
+	public static final Color SELECTION_RESIZER_COLOR = Color.WHITE;
 }

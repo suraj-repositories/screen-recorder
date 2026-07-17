@@ -122,9 +122,6 @@ public class ControlFrame extends JWindow {
 		return radio;
 	}
 
-	/**
-	 * Displays toolbar at given location.
-	 */
 	public void showToolbar(int x, int y) {
 		setLocation(x, y);
 		setVisible(true);

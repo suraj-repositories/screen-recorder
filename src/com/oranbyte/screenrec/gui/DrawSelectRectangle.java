@@ -15,6 +15,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JPanel;
+import javax.swing.Timer;
+
+import com.oranbyte.screenrec.constants.AppColors;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
 
@@ -39,12 +42,24 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Point startPoint = null;
 	private Point anchorPoint = null;
 	private int fixedX, fixedY, fixedWidth, fixedHeight;
+	private float dashPhase = 0f;
 
 	public DrawSelectRectangle(BufferedImage screenImage) {
 		this.screenImage = screenImage;
 		addMouseListener(this);
 		addMouseMotionListener(this);
 		setOpaque(false);
+
+		Timer marchingAntsTimer = new Timer(50, e -> {
+			dashPhase += 1f;
+
+			if (dashPhase >= 10f) {
+				dashPhase = 0f;
+			}
+
+			repaint();
+		});
+		marchingAntsTimer.start();
 	}
 
 	@Override
@@ -63,8 +78,10 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 				g2d.fillRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 						selectedRectangle.height);
 			}
-			g2d.setColor(Color.ORANGE);
-			g2d.setStroke(new BasicStroke(2));
+			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
+
+			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] { 6f, 4f },
+					dashPhase));
 			g2d.drawRoundRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 					selectedRectangle.height, 8, 8);
 
@@ -76,7 +93,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	}
 
 	private void drawHandles(Graphics2D g2d) {
-		g2d.setColor(Color.ORANGE);
+		g2d.setColor(AppColors.SELECTION_RESIZER_COLOR);
 		for (Rectangle handle : getHandleRects().values()) {
 			g2d.fillRect(handle.x, handle.y, handle.width, handle.height);
 		}
@@ -202,6 +219,14 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		} else if (selectedRectangle.contains(p)) {
 			dragOffset = new Point(p.x - selectedRectangle.x, p.y - selectedRectangle.y);
 			isMoving = true;
+		} else {
+			isCreated = false;
+			isMoving = false;
+			dragOffset = null;
+			activeHandle = NONE;
+			anchorPoint = null;
+			startPoint = p;
+			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
 		}
 	}
 
