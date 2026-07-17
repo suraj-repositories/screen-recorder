@@ -17,7 +17,7 @@ import javax.swing.JFrame;
 public class SelectionFrame extends JFrame {
 
 	DrawSelectRectangle drawPanel;
-	
+
 	public SelectionFrame() {
 		setUndecorated(true);
 		setAlwaysOnTop(true);
@@ -28,19 +28,16 @@ public class SelectionFrame extends JFrame {
 		setLocation(0, 0);
 		setLayout(new BorderLayout());
 
-		
 		BufferedImage screenImage = null;
 		try {
-			GraphicsConfiguration gc = GraphicsEnvironment
-				    .getLocalGraphicsEnvironment()
-				    .getDefaultScreenDevice()
-				    .getDefaultConfiguration();
+			GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+					.getDefaultConfiguration();
 
-				Rectangle screenBounds = gc.getBounds();
+			Rectangle screenBounds = gc.getBounds();
 
 			screenImage = new Robot(gc.getDevice()).createScreenCapture(screenBounds);
 		} catch (HeadlessException | AWTException e) {
-		    e.printStackTrace();
+			e.printStackTrace();
 		}
 
 		drawPanel = new DrawSelectRectangle(screenImage);
@@ -53,9 +50,31 @@ public class SelectionFrame extends JFrame {
 	}
 
 	public Rectangle getCaptureBounds() {
-		Rectangle bounds = getBounds();
-		bounds.width = (int) (Math.ceil(bounds.width / 2.0) * 2);
-		bounds.height = (int) (Math.ceil(bounds.height / 2.0) * 2);
-		return bounds;
+//		Rectangle bounds = getBounds();
+//		bounds.width = (int) (Math.ceil(bounds.width / 2.0) * 2);
+//		bounds.height = (int) (Math.ceil(bounds.height / 2.0) * 2);
+//		return bounds;
+		return drawPanel.getSelectedRectangle();
+	}
+
+	public void refreshScreen() {
+		try {
+			GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+					.getDefaultConfiguration();
+
+			Rectangle bounds = gc.getBounds();
+
+			BufferedImage image = new Robot(gc.getDevice()).createScreenCapture(bounds);
+
+			drawPanel.setScreenImage(image);
+			drawPanel.repaint();
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+	}
+
+	public void closeSelection() {
+		setVisible(false);
 	}
 }

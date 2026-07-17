@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Toolkit;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -13,23 +14,40 @@ import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JWindow;
-import javax.swing.SwingUtilities;
 
 public class ControlFrame extends JWindow {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	private final MainFrame mainFrame;
+	private final SelectionFrame selectionFrame;
 
 	private JComboBox<String> captureMode;
 	private JRadioButton recordingRadio;
 	private JRadioButton screenshotRadio;
 	private JButton closeButton;
 
-	public ControlFrame(MainFrame mainFrame) {
+	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
+
+		super(owner);
+
 		this.mainFrame = mainFrame;
+		this.selectionFrame = selectionFrame;
 
 		initializeUI();
 
-		setLocationRelativeTo(null);
+		pack();
+
+		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+
+		int x = (screen.width - getWidth()) / 2;
+		int y = 20;
+
+		setLocation(x, y);
+		setAlwaysOnTop(true);
 		setVisible(true);
 	}
 
@@ -70,8 +88,13 @@ public class ControlFrame extends JWindow {
 		closeButton.setPreferredSize(new Dimension(34, 30));
 
 		closeButton.addActionListener(e -> {
+
+			selectionFrame.closeSelection();
 			setVisible(false);
-			dispose();
+
+			mainFrame.setVisible(true);
+			mainFrame.toFront();
+			mainFrame.requestFocus();
 		});
 
 		right.add(closeButton);
@@ -123,10 +146,4 @@ public class ControlFrame extends JWindow {
 		return closeButton;
 	}
 
-	public static void main(String[] args) {
-		SwingUtilities.invokeLater(() -> {
-			ControlFrame frame = new ControlFrame(null);
-			frame.showToolbar(500, 200);
-		});
-	}
 }

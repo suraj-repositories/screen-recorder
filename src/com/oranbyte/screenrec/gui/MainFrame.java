@@ -11,6 +11,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JToolBar;
+import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.Icons;
@@ -69,18 +70,37 @@ public class MainFrame extends JFrame {
 
 		newButton.addActionListener(e -> {
 
-			this.dispose();
+			setVisible(false);
 
 			if (selectionFrame != null) {
-				selectionFrame.dispose();
+				selectionFrame.setVisible(false);
 			}
 
 			if (controlFrame != null) {
-				controlFrame.dispose();
+				controlFrame.setVisible(false);
 			}
 
-			selectionFrame = new SelectionFrame();
-			controlFrame = new ControlFrame(this);
+			Timer timer = new Timer(300, ev -> {
+
+				if (selectionFrame == null) {
+					selectionFrame = new SelectionFrame();
+				} else {
+					selectionFrame.refreshScreen();
+					selectionFrame.setVisible(true);
+				}
+
+				if (controlFrame == null) {
+					controlFrame = new ControlFrame(selectionFrame, this, selectionFrame);
+				}
+
+				controlFrame.setVisible(true);
+				controlFrame.toFront();
+				controlFrame.requestFocus();
+
+			});
+
+			timer.setRepeats(false);
+			timer.start();
 		});
 
 		toolbar.add(newButton);
