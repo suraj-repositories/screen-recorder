@@ -11,6 +11,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JToolBar;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
@@ -24,7 +25,6 @@ public class MainFrame extends JFrame {
 	private static final long serialVersionUID = 1L;
 
 	private SelectionFrame selectionFrame;
-	private ControlFrame controlFrame;
 	private ScreenRecorder recorder;
 
 	private JButton recordButton;
@@ -56,6 +56,11 @@ public class MainFrame extends JFrame {
 
 		add(recordButton, BorderLayout.CENTER);
 
+		SwingUtilities.invokeLater(() -> {
+			selectionFrame = new SelectionFrame();
+			selectionFrame.setVisible(false);
+		});
+
 		setVisible(true);
 	}
 
@@ -72,43 +77,25 @@ public class MainFrame extends JFrame {
 
 			setVisible(false);
 
-			if (selectionFrame != null) {
-				selectionFrame.setVisible(false);
-			}
-
-			if (controlFrame != null) {
-				controlFrame.setVisible(false);
-			}
-
 			Timer timer = new Timer(300, ev -> {
 
 				if (selectionFrame == null) {
 					selectionFrame = new SelectionFrame();
-				} else {
-					selectionFrame.refreshScreen();
-					selectionFrame.setVisible(true);
 				}
 
-				if (controlFrame == null) {
-					controlFrame = new ControlFrame(selectionFrame, this, selectionFrame);
-				}
-
-				controlFrame.setVisible(true);
-				controlFrame.toFront();
-				controlFrame.requestFocus();
+				selectionFrame.activate(this);
 
 			});
 
 			timer.setRepeats(false);
 			timer.start();
+
 		});
 
 		toolbar.add(newButton);
-
 		toolbar.add(Box.createHorizontalStrut(10));
 
 		ToolbarComboBox captureMode = new ToolbarComboBox("Rectangle", "Entire Screen");
-
 		toolbar.add(captureMode);
 
 		return toolbar;
@@ -147,11 +134,6 @@ public class MainFrame extends JFrame {
 		if (selectionFrame != null) {
 			selectionFrame.dispose();
 			selectionFrame = null;
-		}
-
-		if (controlFrame != null) {
-			controlFrame.dispose();
-			controlFrame = null;
 		}
 	}
 

@@ -70,10 +70,13 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		g2d.fillRect(0, 0, getWidth(), getHeight());
 		if (selectedRectangle != null && screenImage != null) {
 			try {
+
 				BufferedImage cropped = screenImage.getSubimage(selectedRectangle.x, selectedRectangle.y,
 						selectedRectangle.width, selectedRectangle.height);
 				g2d.drawImage(cropped, selectedRectangle.x, selectedRectangle.y, null);
+
 			} catch (Exception e) {
+
 				g2d.setColor(Color.DARK_GRAY);
 				g2d.fillRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 						selectedRectangle.height);
