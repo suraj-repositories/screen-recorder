@@ -13,7 +13,8 @@ import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 
 import javax.swing.JFrame;
-import javax.swing.Timer;
+
+import com.oranbyte.screenrec.constants.CaptureMode;
 
 public class SelectionFrame extends JFrame {
 
@@ -83,13 +84,9 @@ public class SelectionFrame extends JFrame {
 	}
 
 	public void activate(MainFrame mainFrame) {
-
 		refreshScreen();
 		setVisible(true);
-
-		Timer timer = new Timer(300, ev -> showControlFrame(mainFrame));
-		timer.setRepeats(false);
-		timer.start();
+		showControlFrame(mainFrame);
 	}
 
 	private void showControlFrame(MainFrame mainFrame) {
@@ -115,5 +112,9 @@ public class SelectionFrame extends JFrame {
 	public void dispose() {
 		disposeControlFrame();
 		super.dispose();
+	}
+
+	public void setCaptureMode(CaptureMode captureMode) {
+		controlFrame.captureModeComboBox.setSelectedItem(captureMode);
 	}
 }

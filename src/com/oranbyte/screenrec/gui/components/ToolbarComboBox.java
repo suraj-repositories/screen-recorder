@@ -20,13 +20,14 @@ import javax.swing.plaf.basic.BasicComboPopup;
 import com.oranbyte.screenrec.constants.AppColors;
 
 @SuppressWarnings("serial")
-public class ToolbarComboBox extends JComboBox<String> {
+public class ToolbarComboBox<E> extends JComboBox<E> {
 
 	private static final Font DEFAULT_FONT = new Font("Segoe UI", Font.PLAIN, 16);
 
 	private Insets padding = new Insets(7, 11, 7, 11);
 
-	public ToolbarComboBox(String... items) {
+	@SafeVarargs
+	public ToolbarComboBox(E... items) {
 		super(items);
 		initialize();
 	}

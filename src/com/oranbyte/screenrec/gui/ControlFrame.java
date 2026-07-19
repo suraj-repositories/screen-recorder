@@ -15,6 +15,8 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JWindow;
 
+import com.oranbyte.screenrec.constants.CaptureMode;
+
 public class ControlFrame extends JWindow {
 
 	/**
@@ -25,7 +27,7 @@ public class ControlFrame extends JWindow {
 	private final MainFrame mainFrame;
 	private final SelectionFrame selectionFrame;
 
-	private JComboBox<String> captureMode;
+	JComboBox<CaptureMode> captureModeComboBox;
 	private JRadioButton recordingRadio;
 	private JRadioButton screenshotRadio;
 	private JButton closeButton;
@@ -70,22 +72,22 @@ public class ControlFrame extends JWindow {
 		group.add(recordingRadio);
 		group.add(screenshotRadio);
 
-		captureMode = new JComboBox<>(new String[] { "Rectangle", "Entire Screen" });
+		captureModeComboBox = new JComboBox<>(CaptureMode.values());
 
-		captureMode.setFont(font);
-		captureMode.setPreferredSize(new Dimension(150, 30));
+		captureModeComboBox.setFont(font);
+		captureModeComboBox.setPreferredSize(new Dimension(150, 30));
 
 		left.add(recordingRadio);
 		left.add(screenshotRadio);
-		left.add(captureMode);
+		left.add(captureModeComboBox);
 
 		JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
 		right.setOpaque(false);
 
 		closeButton = new JButton("X");
-		closeButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		closeButton.setFont(new Font("Segoe UI", Font.BOLD, 10));
 		closeButton.setFocusable(false);
-		closeButton.setPreferredSize(new Dimension(34, 30));
+		closeButton.setPreferredSize(new Dimension(50, 30));
 
 		closeButton.addActionListener(e -> {
 
@@ -136,11 +138,15 @@ public class ControlFrame extends JWindow {
 	}
 
 	public String getCaptureMode() {
-		return (String) captureMode.getSelectedItem();
+		return (String) captureModeComboBox.getSelectedItem();
 	}
 
 	public JButton getCloseButton() {
 		return closeButton;
+	}
+
+	public void setCaptureMode(CaptureMode c) {
+
 	}
 
 }
