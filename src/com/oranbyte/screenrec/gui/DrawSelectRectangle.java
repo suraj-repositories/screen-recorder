@@ -18,6 +18,7 @@ import javax.swing.JPanel;
 import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.CaptureMode;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
 
@@ -37,6 +38,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Point dragOffset = null;
 	private boolean isMoving = false;
 	private boolean isCreated = false;
+
+	private CaptureMode captureMode;
 
 	private int activeHandle = NONE;
 	private Point startPoint = null;

@@ -17,6 +17,7 @@ import javax.swing.Timer;
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
+import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
@@ -77,6 +78,8 @@ public class MainFrame extends JFrame {
 
 		ToolbarComboBox<CaptureMode> captureMode = new ToolbarComboBox<>(CaptureMode.values());
 
+		ImageSwitch modeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
+
 		newButton.addActionListener(e -> {
 
 			setVisible(false);
@@ -88,8 +91,10 @@ public class MainFrame extends JFrame {
 				}
 
 				CaptureMode mode = (CaptureMode) captureMode.getSelectedItem();
+				RecordingMode rMode = modeSwitch.getRecordingMode();
 				selectionFrame.activate(this);
 				selectionFrame.setCaptureMode(mode);
+				selectionFrame.setRecordingMode(rMode);
 
 			});
 
@@ -97,8 +102,6 @@ public class MainFrame extends JFrame {
 			timer.start();
 
 		});
-
-		ImageSwitch modeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
 
 		toolbar.add(newButton);
 		toolbar.add(Box.createHorizontalStrut(10));

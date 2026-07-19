@@ -12,8 +12,12 @@ import java.awt.event.MouseEvent;
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.Timer;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.EventListenerList;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.RecordingMode;
 
 public class ImageSwitch extends JComponent {
 
@@ -22,8 +26,7 @@ public class ImageSwitch extends JComponent {
 	 */
 	private static final long serialVersionUID = 1L;
 
-	private int selectedIndex;
-
+	private RecordingMode recordingMode = RecordingMode.SCREENSHOT;
 	private final Icon[] icons;
 
 	private Color background = AppColors.BUTTON;
@@ -31,10 +34,12 @@ public class ImageSwitch extends JComponent {
 	private float thumbX = 2;
 	private Timer animation;
 
+	private final EventListenerList listenerList = new EventListenerList();
+
 	public ImageSwitch(Icon left, Icon right) {
 		this.icons = new Icon[] { left, right };
 
-		setPreferredSize(new Dimension(40, 36));
+		setPreferredSize(new Dimension(90, 45));
 		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
 		MouseAdapter adapter = new MouseAdapter() {
@@ -63,10 +68,11 @@ public class ImageSwitch extends JComponent {
 				background = contains(e.getPoint()) ? AppColors.BUTTON_HOVER : AppColors.BUTTON;
 
 				int half = getWidth() / 2;
-				int index = e.getX() < half ? 0 : 1;
 
-				if (selectedIndex != index) {
-					animateTo(index);
+				RecordingMode mode = e.getX() < half ? RecordingMode.SCREENSHOT : RecordingMode.VIDEO;
+
+				if (recordingMode != mode) {
+					animateTo(mode);
 				} else {
 					repaint();
 				}
@@ -76,12 +82,13 @@ public class ImageSwitch extends JComponent {
 		addMouseListener(adapter);
 	}
 
-	private void animateTo(int index) {
+	private void animateTo(RecordingMode mode) {
 
-		selectedIndex = index;
+		recordingMode = mode;
+		fireStateChanged();
 
 		int half = getWidth() / 2;
-		final float target = index == 0 ? 2 : half;
+		final float target = mode == RecordingMode.SCREENSHOT ? 2 : half;
 
 		if (animation != null && animation.isRunning()) {
 			animation.stop();
@@ -102,13 +109,13 @@ public class ImageSwitch extends JComponent {
 		animation.start();
 	}
 
-	public int getSelectedIndex() {
-		return selectedIndex;
+	public RecordingMode getRecordingMode() {
+		return recordingMode;
 	}
 
-	public void setSelectedIndex(int index) {
-		if (selectedIndex != index) {
-			animateTo(index);
+	public void setRecordingMode(RecordingMode mode) {
+		if (recordingMode != mode) {
+			animateTo(mode);
 		}
 	}
 
@@ -145,5 +152,20 @@ public class ImageSwitch extends JComponent {
 		}
 
 		g2.dispose();
+	}
+
+	public void addChangeListener(ChangeListener listener) {
+		listenerList.add(ChangeListener.class, listener);
+	}
+
+	public void removeChangeListener(ChangeListener listener) {
+		listenerList.remove(ChangeListener.class, listener);
+	}
+
+	protected void fireStateChanged() {
+		ChangeEvent event = new ChangeEvent(this);
+		for (ChangeListener listener : listenerList.getListeners(ChangeListener.class)) {
+			listener.stateChanged(event);
+		}
 	}
 }

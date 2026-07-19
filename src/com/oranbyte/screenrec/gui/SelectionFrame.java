@@ -15,6 +15,7 @@ import java.awt.image.BufferedImage;
 import javax.swing.JFrame;
 
 import com.oranbyte.screenrec.constants.CaptureMode;
+import com.oranbyte.screenrec.constants.RecordingMode;
 
 public class SelectionFrame extends JFrame {
 
@@ -114,7 +115,12 @@ public class SelectionFrame extends JFrame {
 		super.dispose();
 	}
 
-	public void setCaptureMode(CaptureMode captureMode) {
-		controlFrame.captureModeComboBox.setSelectedItem(captureMode);
+	public void setCaptureMode(CaptureMode mode) {
+		controlFrame.captureModeComboBox.setSelectedItem(mode);
 	}
+
+	public void setRecordingMode(RecordingMode mode) {
+		controlFrame.recordingModeSwitch.setRecordingMode(mode);
+	}
+
 }
