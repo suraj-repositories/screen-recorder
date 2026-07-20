@@ -12,12 +12,12 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 
-import javax.swing.JFrame;
+import javax.swing.JWindow;
 
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
 
-public class SelectionFrame extends JFrame {
+public class SelectionFrame extends JWindow {
 
 	/**
 	 * 
@@ -28,7 +28,6 @@ public class SelectionFrame extends JFrame {
 	private ControlFrame controlFrame;
 
 	public SelectionFrame() {
-		setUndecorated(true);
 		setAlwaysOnTop(true);
 		setBackground(new Color(0, 0, 0, 0));
 
@@ -52,7 +51,7 @@ public class SelectionFrame extends JFrame {
 			e.printStackTrace();
 		}
 
-		drawPanel = new DrawSelectRectangle(screenImage);
+		drawPanel = new DrawSelectRectangle(this, screenImage);
 
 		drawPanel.setOpaque(false);
 		drawPanel.setBackground(new Color(0, 0, 0, 0));

@@ -86,9 +86,9 @@ public class MainFrame extends JFrame {
 
 			Timer timer = new Timer(300, ev -> {
 
-				if (selectionFrame == null) {
-					selectionFrame = new SelectionFrame();
-				}
+//				if (selectionFrame == null) {
+				selectionFrame = new SelectionFrame();
+//				}
 
 				CaptureMode mode = (CaptureMode) captureMode.getSelectedItem();
 				RecordingMode rMode = modeSwitch.getRecordingMode();

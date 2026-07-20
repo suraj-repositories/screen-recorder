@@ -3,10 +3,13 @@ package com.oranbyte.screenrec.gui;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -15,16 +18,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.CaptureMode;
+import com.oranbyte.screenrec.util.WindowFinder;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	private static final int HANDLE_SIZE = 12;
@@ -46,9 +48,13 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Point anchorPoint = null;
 	private int fixedX, fixedY, fixedWidth, fixedHeight;
 	private float dashPhase = 0f;
+	private Rectangle hoverRectangle = null;
+	private SelectionFrame selectionFrame;
 
-	public DrawSelectRectangle(BufferedImage screenImage) {
+	public DrawSelectRectangle(SelectionFrame selectionFrame, BufferedImage screenImage) {
 		this.screenImage = screenImage;
+		this.selectionFrame = selectionFrame;
+		captureMode = CaptureMode.WINDOW;
 		addMouseListener(this);
 		addMouseMotionListener(this);
 		setOpaque(false);
@@ -65,21 +71,106 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		marchingAntsTimer.start();
 	}
 
+	public void setCaptureMode(CaptureMode mode) {
+		this.captureMode = mode;
+
+		isMoving = false;
+		dragOffset = null;
+		activeHandle = NONE;
+		anchorPoint = null;
+		startPoint = null;
+		hoverRectangle = null;
+
+		if (mode == CaptureMode.ENTIRE_SCREEN) {
+			selectedRectangle = computeFixedRectangle(mode);
+			isCreated = true;
+		} else {
+			selectedRectangle = null;
+			isCreated = false;
+		}
+
+		setCursor(mode == CaptureMode.RECTANGLE ? new Cursor(Cursor.CROSSHAIR_CURSOR) : Cursor.getDefaultCursor());
+		repaint();
+	}
+
+	public CaptureMode getCaptureMode() {
+		return captureMode;
+	}
+
+	private Rectangle computeFixedRectangle(CaptureMode mode) {
+		if (mode == CaptureMode.ENTIRE_SCREEN) {
+			Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+			return new Rectangle(0, 0, screenSize.width, screenSize.height);
+		}
+
+		return null;
+	}
+
+	private Window getOverlayWindow() {
+		if (selectionFrame instanceof Window) {
+			return (Window) selectionFrame;
+		}
+		return SwingUtilities.getWindowAncestor(this);
+	}
+
+	private Rectangle clampToImageBounds(Rectangle rect) {
+		if (screenImage == null || rect == null) {
+			return rect;
+		}
+
+		int x = Math.max(0, rect.x);
+		int y = Math.max(0, rect.y);
+		int right = Math.min(rect.x + rect.width, screenImage.getWidth());
+		int bottom = Math.min(rect.y + rect.height, screenImage.getHeight());
+		int w = Math.max(0, right - x);
+		int h = Math.max(0, bottom - y);
+
+		return new Rectangle(x, y, w, h);
+	}
+
+	private void updateHoverRectangle(Point panelPoint) {
+		Point panelLocation;
+		try {
+			panelLocation = getLocationOnScreen();
+		} catch (Exception e) {
+			return;
+		}
+
+		Point screenPoint = new Point(panelLocation.x + panelPoint.x, panelLocation.y + panelPoint.y);
+
+		Rectangle windowBounds = WindowFinder.findWindowAt(screenPoint, getOverlayWindow());
+
+		if (windowBounds == null) {
+			hoverRectangle = null;
+			return;
+		}
+
+		hoverRectangle = new Rectangle(windowBounds.x - panelLocation.x, windowBounds.y - panelLocation.y,
+				windowBounds.width, windowBounds.height);
+	}
+
+	public void setFixedSelection(Rectangle rect) {
+		if (rect == null) {
+			return;
+		}
+		this.selectedRectangle = clampToImageBounds(new Rectangle(rect));
+		this.isCreated = true;
+		repaint();
+	}
+
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g.create();
 		g2d.setColor(new Color(0, 0, 0, 150));
 		g2d.fillRect(0, 0, getWidth(), getHeight());
+
 		if (selectedRectangle != null && screenImage != null) {
+			Rectangle clipped = clampToImageBounds(selectedRectangle);
 			try {
-
-				BufferedImage cropped = screenImage.getSubimage(selectedRectangle.x, selectedRectangle.y,
-						selectedRectangle.width, selectedRectangle.height);
+				BufferedImage cropped = screenImage.getSubimage(clipped.x, clipped.y, clipped.width, clipped.height);
 				g2d.drawImage(cropped, selectedRectangle.x, selectedRectangle.y, null);
-
 			} catch (Exception e) {
-
 				g2d.setColor(Color.DARK_GRAY);
 				g2d.fillRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 						selectedRectangle.height);
@@ -94,6 +185,19 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			if (isCreated) {
 				drawHandles(g2d);
 			}
+		}
+
+		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null && screenImage != null) {
+			Rectangle clipped = clampToImageBounds(hoverRectangle);
+			try {
+				BufferedImage cropped = screenImage.getSubimage(clipped.x, clipped.y, clipped.width, clipped.height);
+				g2d.drawImage(cropped, hoverRectangle.x, hoverRectangle.y, null);
+			} catch (Exception e) {
+			}
+
+			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
+			g2d.setStroke(new BasicStroke(2f));
+			g2d.drawRoundRect(hoverRectangle.x, hoverRectangle.y, hoverRectangle.width, hoverRectangle.height, 8, 8);
 		}
 		g2d.dispose();
 	}
@@ -167,6 +271,23 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		Point p = e.getPoint();
 
 		if (!isCreated) {
+			if (captureMode == CaptureMode.WINDOW) {
+				if (hoverRectangle != null) {
+					selectedRectangle = clampToImageBounds(new Rectangle(hoverRectangle));
+					isCreated = true;
+					hoverRectangle = null;
+					repaint();
+				}
+				return;
+			}
+
+			if (captureMode == CaptureMode.ENTIRE_SCREEN) {
+				selectedRectangle = computeFixedRectangle(captureMode);
+				isCreated = true;
+				repaint();
+				return;
+			}
+
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
 			return;
@@ -225,7 +346,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		} else if (selectedRectangle.contains(p)) {
 			dragOffset = new Point(p.x - selectedRectangle.x, p.y - selectedRectangle.y);
 			isMoving = true;
-		} else {
+		} else if (captureMode == CaptureMode.RECTANGLE) {
 			isCreated = false;
 			isMoving = false;
 			dragOffset = null;
@@ -336,6 +457,13 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
+		if (captureMode == CaptureMode.WINDOW && !isCreated) {
+			updateHoverRectangle(e.getPoint());
+			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+			repaint();
+			return;
+		}
+
 		if (selectedRectangle == null) {
 			return;
 		}
@@ -346,16 +474,19 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 				setCursor(cursorForHandle(handle));
 				return;
 			}
+
+			if (selectedRectangle.contains(e.getPoint())) {
+				setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+			} else {
+				setCursor(Cursor.getDefaultCursor());
+			}
+			return;
 		}
 
 		if (selectedRectangle.contains(e.getPoint())) {
 			setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
 		} else {
-			if (!isCreated) {
-				setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
-			} else {
-				setCursor(Cursor.getDefaultCursor());
-			}
+			setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		}
 	}
 

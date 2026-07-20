@@ -22,5 +22,15 @@
 	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/STS workspace/ScreenRecorder/lib/xuggle-xuggler-arch-x86_64-w64-mingw32_LIFERAY-PATCHED-1.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/STS workspace/ScreenRecorder/lib/xuggle-xuggler-arch-x86_64-xuggle-darwin11.jar"/>
 	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/STS workspace/ScreenRecorder/lib/xuggle-xuggler-noarch-5.4.jar"/>
+	<classpathentry kind="lib" path="lib/jna-5.19.1.jar">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="lib/jna-platform-5.19.1.jar">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
