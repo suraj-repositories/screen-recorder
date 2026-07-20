@@ -33,7 +33,6 @@ public class ImageSwitch extends JComponent {
 
 	private float thumbX = 2;
 	private Timer animation;
-
 	private final EventListenerList listenerList = new EventListenerList();
 
 	public ImageSwitch(Icon left, Icon right) {

@@ -26,6 +26,8 @@ public class ToolbarComboBox<E> extends JComboBox<E> {
 
 	private Insets padding = new Insets(7, 11, 7, 11);
 
+	private int borderRadius = 10;
+
 	@SafeVarargs
 	public ToolbarComboBox(E... items) {
 		super(items);
@@ -73,7 +75,7 @@ public class ToolbarComboBox<E> extends JComboBox<E> {
 	}
 
 	private Border createBorder(Color color) {
-		return BorderFactory.createCompoundBorder(new LineBorder(color, 1, true), new EmptyBorder(padding));
+		return BorderFactory.createCompoundBorder(new RoundedBorder(color, borderRadius, 1), new EmptyBorder(padding));
 	}
 
 	public ToolbarComboBox setPadding(int top, int left, int bottom, int right) {
@@ -153,5 +155,9 @@ public class ToolbarComboBox<E> extends JComboBox<E> {
 
 			return popup;
 		}
+	}
+
+	public void setBorderRadius(int borderRadius) {
+		this.borderRadius = borderRadius;
 	}
 }

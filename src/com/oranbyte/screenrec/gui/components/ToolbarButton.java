@@ -11,7 +11,6 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.Icons;
@@ -22,8 +21,11 @@ public class ToolbarButton extends JButton {
 
 	private Insets padding = new Insets(7, 11, 7, 11);
 
+	private int borderRadius = 10;
+
 	private Border createBorder(Color color) {
-		return BorderFactory.createCompoundBorder(new LineBorder(color, 1, true), new EmptyBorder(padding));
+
+		return BorderFactory.createCompoundBorder(new RoundedBorder(color, borderRadius, 1), new EmptyBorder(padding));
 	}
 
 	public ToolbarButton(String text, Icons icon) {
@@ -147,4 +149,9 @@ public class ToolbarButton extends JButton {
 		setForeground(new Color(0x2E7D32));
 		return this;
 	}
+
+	public void setBorderRadius(int borderRadius) {
+		this.borderRadius = borderRadius;
+	}
+
 }

@@ -4,7 +4,6 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -15,10 +14,10 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JWindow;
+import javax.swing.SwingConstants;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.CaptureMode;
@@ -26,6 +25,8 @@ import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
 import com.oranbyte.screenrec.gui.components.RoundedBorder;
+import com.oranbyte.screenrec.gui.components.ToolbarButton;
+import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
 
 public class ControlFrame extends JWindow {
 
@@ -34,11 +35,11 @@ public class ControlFrame extends JWindow {
 	private final MainFrame mainFrame;
 	private final SelectionFrame selectionFrame;
 
-	JComboBox<CaptureMode> captureModeComboBox;
+	ToolbarComboBox<CaptureMode> captureModeComboBox;
 	ImageSwitch recordingModeSwitch;
 	private JRadioButton recordingRadio;
 	private JRadioButton screenshotRadio;
-	private JButton closeButton;
+	private ToolbarButton closeButton;
 
 	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
 
@@ -99,8 +100,8 @@ public class ControlFrame extends JWindow {
 
 		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
 
-		captureModeComboBox = new JComboBox<>(CaptureMode.values());
-		captureModeComboBox.setPreferredSize(new Dimension(150, 30));
+		captureModeComboBox = new ToolbarComboBox<>(CaptureMode.values());
+		captureModeComboBox.setPreferredSize(new Dimension(150, 45));
 
 		captureModeComboBox.addActionListener(e -> {
 			CaptureMode selectedMode = getCaptureMode();
@@ -113,11 +114,9 @@ public class ControlFrame extends JWindow {
 		left.add(recordingModeSwitch);
 		left.add(captureModeComboBox);
 
-		closeButton = new JButton("X");
-		closeButton.setFont(new Font("Segoe UI", Font.BOLD, 10));
-		closeButton.setFocusable(false);
-		closeButton.setPreferredSize(new Dimension(50, 30));
-		closeButton.setAlignmentY(Component.CENTER_ALIGNMENT);
+		closeButton = new ToolbarButton(Icons.CLOSE);
+		closeButton.setHorizontalAlignment(SwingConstants.CENTER);
+		closeButton.setPreferredSize(new Dimension(45, 45));
 
 		closeButton.addActionListener(e -> {
 			selectionFrame.closeSelection();
