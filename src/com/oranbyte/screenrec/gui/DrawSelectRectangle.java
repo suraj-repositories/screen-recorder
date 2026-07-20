@@ -54,7 +54,14 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	public DrawSelectRectangle(SelectionFrame selectionFrame, BufferedImage screenImage) {
 		this.screenImage = screenImage;
 		this.selectionFrame = selectionFrame;
-		captureMode = CaptureMode.WINDOW;
+
+		CaptureMode cm = selectionFrame.getCaptureMode();
+		if (cm == null) {
+			captureMode = CaptureMode.RECTANGLE;
+		} else {
+			captureMode = cm;
+		}
+
 		addMouseListener(this);
 		addMouseMotionListener(this);
 		setOpaque(false);
@@ -170,13 +177,14 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			try {
 				BufferedImage cropped = screenImage.getSubimage(clipped.x, clipped.y, clipped.width, clipped.height);
 				g2d.drawImage(cropped, selectedRectangle.x, selectedRectangle.y, null);
+
 			} catch (Exception e) {
 				g2d.setColor(Color.DARK_GRAY);
 				g2d.fillRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 						selectedRectangle.height);
+
 			}
 			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
-
 			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] { 6f, 4f },
 					dashPhase));
 			g2d.drawRoundRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,

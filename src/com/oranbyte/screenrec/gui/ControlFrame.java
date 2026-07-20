@@ -102,6 +102,14 @@ public class ControlFrame extends JWindow {
 		captureModeComboBox = new JComboBox<>(CaptureMode.values());
 		captureModeComboBox.setPreferredSize(new Dimension(150, 30));
 
+		captureModeComboBox.addActionListener(e -> {
+			CaptureMode selectedMode = getCaptureMode();
+
+			if (selectedMode != null) {
+				setCaptureMode(selectedMode);
+			}
+		});
+
 		left.add(recordingModeSwitch);
 		left.add(captureModeComboBox);
 
@@ -161,6 +169,7 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void setCaptureMode(CaptureMode mode) {
+		selectionFrame.drawPanel.setCaptureMode(mode);
 		captureModeComboBox.setSelectedItem(mode);
 	}
 

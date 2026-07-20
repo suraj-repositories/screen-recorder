@@ -118,6 +118,13 @@ public class SelectionFrame extends JWindow {
 		controlFrame.captureModeComboBox.setSelectedItem(mode);
 	}
 
+	public CaptureMode getCaptureMode() {
+		if (controlFrame == null) {
+			return CaptureMode.RECTANGLE;
+		}
+		return controlFrame.getCaptureMode();
+	}
+
 	public void setRecordingMode(RecordingMode mode) {
 		controlFrame.recordingModeSwitch.setRecordingMode(mode);
 	}
