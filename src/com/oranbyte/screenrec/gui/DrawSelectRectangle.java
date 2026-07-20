@@ -107,7 +107,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Rectangle computeFixedRectangle(CaptureMode mode) {
 		if (mode == CaptureMode.ENTIRE_SCREEN) {
 			Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-			return new Rectangle(0, 0, screenSize.width, screenSize.height);
+			return new Rectangle(0, 0, screenSize.width - 1, screenSize.height - 1);
 		}
 
 		return null;
@@ -132,7 +132,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		int w = Math.max(0, right - x);
 		int h = Math.max(0, bottom - y);
 
-		return new Rectangle(x, y, w, h);
+		return new Rectangle(x, y, w - 1, h - 1);
 	}
 
 	private void updateHoverRectangle(Point panelPoint) {
