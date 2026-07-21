@@ -13,11 +13,12 @@ import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 
 public class ToolbarButton extends JButton {
 
-	private static final Font DEFAULT_FONT = new Font("Segoe UI", Font.PLAIN, 16);
+	private static final Font DEFAULT_FONT = AppConstant.APP_FONT;
 
 	private Insets padding = new Insets(7, 11, 7, 11);
 

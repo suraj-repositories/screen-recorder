@@ -1,9 +1,11 @@
 package com.oranbyte.screenrec.gui;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -14,8 +16,8 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JWindow;
 import javax.swing.SwingConstants;
 
@@ -37,9 +39,13 @@ public class ControlFrame extends JWindow {
 
 	ToolbarComboBox<CaptureMode> captureModeComboBox;
 	ImageSwitch recordingModeSwitch;
-	private JRadioButton recordingRadio;
-	private JRadioButton screenshotRadio;
 	private ToolbarButton closeButton;
+
+	private JLabel recordingTimeLabel;
+	private ToolbarButton startButton;
+	private ToolbarButton pauseButton;
+	private ToolbarButton playButton;
+	private ToolbarButton terminateButton;
 
 	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
 
@@ -101,7 +107,6 @@ public class ControlFrame extends JWindow {
 		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
 
 		captureModeComboBox = new ToolbarComboBox<>(CaptureMode.values());
-		captureModeComboBox.setPreferredSize(new Dimension(150, 45));
 
 		captureModeComboBox.addActionListener(e -> {
 			CaptureMode selectedMode = getCaptureMode();
@@ -116,7 +121,7 @@ public class ControlFrame extends JWindow {
 
 		closeButton = new ToolbarButton(Icons.CLOSE);
 		closeButton.setHorizontalAlignment(SwingConstants.CENTER);
-		closeButton.setPreferredSize(new Dimension(45, 45));
+		closeButton.setPreferredSize(new Dimension(42, 42));
 
 		closeButton.addActionListener(e -> {
 			selectionFrame.closeSelection();
@@ -132,6 +137,104 @@ public class ControlFrame extends JWindow {
 		root.add(closeButton);
 
 		setContentPane(root);
+	}
+
+	public void attachRecordingPanel() {
+
+		JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+		left.setOpaque(false);
+		left.setAlignmentY(Component.CENTER_ALIGNMENT);
+
+		// Start
+		startButton = new ToolbarButton("Start", Icons.PLAY);
+
+		// Pause
+		pauseButton = new ToolbarButton("Pause", Icons.PAUSE);
+		pauseButton.setVisible(false);
+
+		// Play (shown after pause)
+		playButton = new ToolbarButton("Resume", Icons.PLAY);
+		playButton.setVisible(false);
+
+		// Stop
+		terminateButton = new ToolbarButton("Terminate", Icons.STOP);
+		terminateButton.setVisible(false);
+
+		// Timer
+		recordingTimeLabel = new JLabel("00:00:00");
+		recordingTimeLabel.setForeground(Color.WHITE);
+		recordingTimeLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+		recordingTimeLabel.setVisible(false);
+
+		// Mic icon
+		JLabel micLabel = new JLabel(Icons.MICROPHONE.icon());
+		micLabel.setVisible(false);
+
+		// Desktop audio icon
+		JLabel speakerLabel = new JLabel(Icons.VOLUME.icon());
+		speakerLabel.setVisible(false);
+
+		// Start
+		startButton.addActionListener(e -> {
+			startButton.setVisible(false);
+
+			pauseButton.setVisible(true);
+			terminateButton.setVisible(true);
+
+			recordingTimeLabel.setVisible(true);
+			micLabel.setVisible(true);
+			speakerLabel.setVisible(true);
+
+			// TODO: Start recording
+		});
+
+		// Pause
+		pauseButton.addActionListener(e -> {
+			pauseButton.setVisible(false);
+			playButton.setVisible(true);
+
+			// TODO: Pause recording
+		});
+
+		// Resume
+		playButton.addActionListener(e -> {
+			playButton.setVisible(false);
+			pauseButton.setVisible(true);
+
+			// TODO: Resume recording
+		});
+
+		// Stop
+		terminateButton.addActionListener(e -> {
+
+			startButton.setVisible(true);
+
+			pauseButton.setVisible(false);
+			playButton.setVisible(false);
+			terminateButton.setVisible(false);
+
+			recordingTimeLabel.setVisible(false);
+			micLabel.setVisible(false);
+			speakerLabel.setVisible(false);
+
+			recordingTimeLabel.setText("00:00:00");
+
+			// TODO: Stop recording
+		});
+
+		left.add(startButton);
+		left.add(pauseButton);
+		left.add(playButton);
+		left.add(terminateButton);
+
+		left.add(Box.createHorizontalStrut(10));
+		left.add(recordingTimeLabel);
+
+		left.add(Box.createHorizontalStrut(12));
+		left.add(micLabel);
+		left.add(speakerLabel);
+
+		add(left, BorderLayout.WEST);
 	}
 
 	@Override
@@ -151,14 +254,6 @@ public class ControlFrame extends JWindow {
 		setVisible(true);
 	}
 
-	public boolean isRecordingMode() {
-		return recordingRadio != null && recordingRadio.isSelected();
-	}
-
-	public boolean isScreenshotMode() {
-		return screenshotRadio != null && screenshotRadio.isSelected();
-	}
-
 	public CaptureMode getCaptureMode() {
 		return (CaptureMode) captureModeComboBox.getSelectedItem();
 	}
@@ -175,4 +270,9 @@ public class ControlFrame extends JWindow {
 	public void setRecordingMode(RecordingMode mode) {
 		recordingModeSwitch.setRecordingMode(mode);
 	}
+
+	public RecordingMode getRecordingMode() {
+		return recordingModeSwitch.getRecordingMode();
+	}
+
 }

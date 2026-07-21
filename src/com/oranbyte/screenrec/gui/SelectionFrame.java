@@ -125,6 +125,10 @@ public class SelectionFrame extends JWindow {
 		return controlFrame.getCaptureMode();
 	}
 
+	public RecordingMode getRecordingMode() {
+		return controlFrame.getRecordingMode();
+	}
+
 	public void setRecordingMode(RecordingMode mode) {
 		controlFrame.recordingModeSwitch.setRecordingMode(mode);
 	}

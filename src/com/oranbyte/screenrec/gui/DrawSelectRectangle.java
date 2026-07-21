@@ -23,6 +23,7 @@ import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.CaptureMode;
+import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.util.WindowFinder;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
@@ -42,6 +43,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private boolean isCreated = false;
 
 	private CaptureMode captureMode;
+	private RecordingMode recordingMode;
 
 	private int activeHandle = NONE;
 	private Point startPoint = null;
@@ -61,6 +63,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		} else {
 			captureMode = cm;
 		}
+
+		RecordingMode md = selectionFrame.getRecordingMode();
 
 		addMouseListener(this);
 		addMouseMotionListener(this);
@@ -362,6 +366,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			anchorPoint = null;
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
+		}
+		
+		
+		if() {
+			
 		}
 	}
 

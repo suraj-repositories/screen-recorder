@@ -2,7 +2,6 @@ package com.oranbyte.screenrec.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.Rectangle;
 
 import javax.swing.BorderFactory;
@@ -15,6 +14,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
@@ -51,7 +51,7 @@ public class MainFrame extends JFrame {
 		add(initToolbar(), BorderLayout.NORTH);
 
 		recordButton = new JButton("Start");
-		recordButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+		recordButton.setFont(AppConstant.APP_FONT);
 		recordButton.setBackground(Color.GREEN.darker());
 		recordButton.setForeground(Color.WHITE);
 		recordButton.setFocusable(false);
