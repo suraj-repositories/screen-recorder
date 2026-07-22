@@ -98,6 +98,7 @@ public class SelectionFrame extends JWindow {
 		controlFrame.setVisible(true);
 		controlFrame.toFront();
 		controlFrame.requestFocus();
+		drawPanel.setControlFrame(controlFrame);
 	}
 
 	public void disposeControlFrame() {
@@ -126,7 +127,7 @@ public class SelectionFrame extends JWindow {
 	}
 
 	public RecordingMode getRecordingMode() {
-		return controlFrame.getRecordingMode();
+		return controlFrame == null ? RecordingMode.SCREENSHOT : controlFrame.getRecordingMode();
 	}
 
 	public void setRecordingMode(RecordingMode mode) {

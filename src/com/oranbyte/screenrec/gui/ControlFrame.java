@@ -1,11 +1,8 @@
 package com.oranbyte.screenrec.gui;
 
-import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -22,9 +19,11 @@ import javax.swing.JWindow;
 import javax.swing.SwingConstants;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
+import com.oranbyte.screenrec.constants.RecordingState;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
 import com.oranbyte.screenrec.gui.components.RoundedBorder;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
@@ -37,15 +36,24 @@ public class ControlFrame extends JWindow {
 	private final MainFrame mainFrame;
 	private final SelectionFrame selectionFrame;
 
+	private JPanel root;
+
+	private JPanel modeControlsPanel;
 	ToolbarComboBox<CaptureMode> captureModeComboBox;
 	ImageSwitch recordingModeSwitch;
-	private ToolbarButton closeButton;
 
-	private JLabel recordingTimeLabel;
+	private JPanel recordingControlsPanel;
 	private ToolbarButton startButton;
 	private ToolbarButton pauseButton;
 	private ToolbarButton playButton;
 	private ToolbarButton terminateButton;
+	private JLabel recordingTimeLabel;
+	private ToolbarButton micToggleButton;
+	private ToolbarButton speakerToggleButton;
+
+	private ToolbarButton closeButton;
+
+	private RecordingState state = RecordingState.IDLE;
 
 	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
 
@@ -57,6 +65,9 @@ public class ControlFrame extends JWindow {
 		setBackground(new Color(0, 0, 0, 0));
 
 		initializeUI();
+
+		// Apply the initial (IDLE) visibility rules now that every control exists.
+		setState(RecordingState.IDLE);
 
 		pack();
 
@@ -74,7 +85,7 @@ public class ControlFrame extends JWindow {
 
 	private void initializeUI() {
 
-		JPanel root = new JPanel() {
+		root = new JPanel() {
 
 			private static final long serialVersionUID = 1L;
 
@@ -100,24 +111,8 @@ public class ControlFrame extends JWindow {
 		root.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(AppColors.BORDER, 10, 1),
 				BorderFactory.createEmptyBorder(8, 10, 8, 10)));
 
-		JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-		left.setOpaque(false);
-		left.setAlignmentY(Component.CENTER_ALIGNMENT);
-
-		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
-
-		captureModeComboBox = new ToolbarComboBox<>(CaptureMode.values());
-
-		captureModeComboBox.addActionListener(e -> {
-			CaptureMode selectedMode = getCaptureMode();
-
-			if (selectedMode != null) {
-				setCaptureMode(selectedMode);
-			}
-		});
-
-		left.add(recordingModeSwitch);
-		left.add(captureModeComboBox);
+		buildRecordingControlsPanel();
+		buildModeControlsPanel();
 
 		closeButton = new ToolbarButton(Icons.CLOSE);
 		closeButton.setHorizontalAlignment(SwingConstants.CENTER);
@@ -132,109 +127,160 @@ public class ControlFrame extends JWindow {
 			mainFrame.requestFocus();
 		});
 
-		root.add(left);
+		root.add(recordingControlsPanel);
+		root.add(modeControlsPanel);
 		root.add(Box.createHorizontalGlue());
+		root.add(Box.createHorizontalStrut(16));
 		root.add(closeButton);
 
 		setContentPane(root);
 	}
 
-	public void attachRecordingPanel() {
+	private void buildModeControlsPanel() {
 
-		JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
-		left.setOpaque(false);
-		left.setAlignmentY(Component.CENTER_ALIGNMENT);
+		modeControlsPanel = new JPanel();
+		modeControlsPanel.setOpaque(false);
+		modeControlsPanel.setLayout(new BoxLayout(modeControlsPanel, BoxLayout.X_AXIS));
+		modeControlsPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
+
+		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
+
+		captureModeComboBox = new ToolbarComboBox<>(CaptureMode.values());
+
+		captureModeComboBox.addActionListener(e -> {
+			CaptureMode selectedMode = getCaptureMode();
+
+			if (selectedMode != null) {
+				setCaptureMode(selectedMode);
+			}
+		});
+
+		modeControlsPanel.add(recordingModeSwitch);
+		modeControlsPanel.add(Box.createHorizontalStrut(12));
+		modeControlsPanel.add(captureModeComboBox);
+	}
+
+	private void buildRecordingControlsPanel() {
+
+		recordingControlsPanel = new JPanel();
+		recordingControlsPanel.setOpaque(false);
+		recordingControlsPanel.setLayout(new BoxLayout(recordingControlsPanel, BoxLayout.X_AXIS));
+		recordingControlsPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
 
 		// Start
-		startButton = new ToolbarButton("Start", Icons.PLAY);
+		startButton = new ToolbarButton("Start", Icons.START);
+		startButton.addActionListener(e -> setState(RecordingState.RECORDING));
+		startButton.setBorder(null);
 
 		// Pause
-		pauseButton = new ToolbarButton("Pause", Icons.PAUSE);
-		pauseButton.setVisible(false);
+		pauseButton = new ToolbarButton(Icons.PAUSE);
+		pauseButton.addActionListener(e -> setState(RecordingState.PAUSED));
+		pauseButton.setBorder(null);
 
-		// Play (shown after pause)
-		playButton = new ToolbarButton("Resume", Icons.PLAY);
-		playButton.setVisible(false);
+		// Resume
+		playButton = new ToolbarButton(Icons.PLAY);
+		playButton.addActionListener(e -> setState(RecordingState.RECORDING));
+		playButton.setBorder(null);
 
 		// Stop
-		terminateButton = new ToolbarButton("Terminate", Icons.STOP);
-		terminateButton.setVisible(false);
+		terminateButton = new ToolbarButton(Icons.STOP);
+		terminateButton.setBorder(null);
+		terminateButton.addActionListener(e -> {
+			recordingTimeLabel.setText("00:00:00");
+			setState(RecordingState.IDLE);
+		});
 
 		// Timer
 		recordingTimeLabel = new JLabel("00:00:00");
-		recordingTimeLabel.setForeground(Color.WHITE);
-		recordingTimeLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
-		recordingTimeLabel.setVisible(false);
+		recordingTimeLabel.setForeground(AppColors.TEXT);
+		recordingTimeLabel.setFont(AppConstant.APP_FONT.deriveFont(18f));
 
 		// Mic icon
-		JLabel micLabel = new JLabel(Icons.MICROPHONE.icon());
-		micLabel.setVisible(false);
+		micToggleButton = new ToolbarButton(Icons.MICROPHONE);
+		micToggleButton.setBorder(null);
 
 		// Desktop audio icon
-		JLabel speakerLabel = new JLabel(Icons.VOLUME.icon());
-		speakerLabel.setVisible(false);
+		speakerToggleButton = new ToolbarButton(Icons.VOLUME);
+		speakerToggleButton.setBorder(null);
 
-		// Start
-		startButton.addActionListener(e -> {
-			startButton.setVisible(false);
+		recordingControlsPanel.add(startButton);
+		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
-			pauseButton.setVisible(true);
-			terminateButton.setVisible(true);
+		recordingControlsPanel.add(pauseButton);
+		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
-			recordingTimeLabel.setVisible(true);
-			micLabel.setVisible(true);
-			speakerLabel.setVisible(true);
+		recordingControlsPanel.add(playButton);
+		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
-			// TODO: Start recording
-		});
+		recordingControlsPanel.add(terminateButton);
+		recordingControlsPanel.add(Box.createHorizontalStrut(16));
 
-		// Pause
-		pauseButton.addActionListener(e -> {
-			pauseButton.setVisible(false);
-			playButton.setVisible(true);
+		recordingControlsPanel.add(recordingTimeLabel);
+		recordingControlsPanel.add(Box.createHorizontalStrut(16));
 
-			// TODO: Pause recording
-		});
+		recordingControlsPanel.add(micToggleButton);
+		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
-		// Resume
-		playButton.addActionListener(e -> {
-			playButton.setVisible(false);
-			pauseButton.setVisible(true);
+		recordingControlsPanel.add(speakerToggleButton);
+	}
 
-			// TODO: Resume recording
-		});
+	/**
+	 * Single source of truth for what's visible/enabled at each step of the capture
+	 * flow:
+	 * <ul>
+	 * <li>IDLE - only the mode selectors (recording mode switch + capture mode
+	 * combo box) are shown; the recording controls panel is hidden entirely.</li>
+	 * <li>SELECTING - mode selectors hidden, recording panel shown with only the
+	 * Start button visible and disabled (selection isn't finished yet).</li>
+	 * <li>READY - same as SELECTING but Start is enabled (selection finished).</li>
+	 * <li>RECORDING - Start/Resume hidden, Pause + Terminate + timer + mic/ speaker
+	 * icons shown; mode selectors stay hidden and locked.</li>
+	 * <li>PAUSED - Pause replaced by Resume, Terminate + timer + mic/speaker stay
+	 * visible; mode selectors stay hidden and locked.</li>
+	 * </ul>
+	 */
+	public void setState(RecordingState newState) {
+		this.state = newState;
 
-		// Stop
-		terminateButton.addActionListener(e -> {
+		System.out.println(newState.toString());
 
-			startButton.setVisible(true);
+		boolean idle = newState == RecordingState.IDLE;
+		boolean selecting = newState == RecordingState.SELECTING;
+		boolean ready = newState == RecordingState.READY;
+		boolean recording = newState == RecordingState.RECORDING;
+		boolean paused = newState == RecordingState.PAUSED;
 
-			pauseButton.setVisible(false);
-			playButton.setVisible(false);
-			terminateButton.setVisible(false);
+		modeControlsPanel.setVisible(idle);
+		recordingControlsPanel.setVisible(!idle);
 
-			recordingTimeLabel.setVisible(false);
-			micLabel.setVisible(false);
-			speakerLabel.setVisible(false);
+		startButton.setVisible(selecting || ready);
+		startButton.setEnabled(ready);
 
-			recordingTimeLabel.setText("00:00:00");
+		pauseButton.setVisible(recording);
+		playButton.setVisible(paused);
+		terminateButton.setVisible(recording || paused);
 
-			// TODO: Stop recording
-		});
+		recordingTimeLabel.setVisible(recording || paused || selecting || ready);
+		micToggleButton.setVisible(recording || paused || selecting || ready);
+		speakerToggleButton.setVisible(recording || paused || selecting || ready);
 
-		left.add(startButton);
-		left.add(pauseButton);
-		left.add(playButton);
-		left.add(terminateButton);
+		boolean locked = recording || paused;
+		captureModeComboBox.setEnabled(!locked);
+		recordingModeSwitch.setEnabled(!locked);
 
-		left.add(Box.createHorizontalStrut(10));
-		left.add(recordingTimeLabel);
+		if (selectionFrame != null && selectionFrame.drawPanel != null) {
+			selectionFrame.drawPanel.setRecordingActive(locked);
+		}
 
-		left.add(Box.createHorizontalStrut(12));
-		left.add(micLabel);
-		left.add(speakerLabel);
+		root.revalidate();
+		root.repaint();
 
-		add(left, BorderLayout.WEST);
+		pack();
+		setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 10, 10));
+	}
+
+	public RecordingState getState() {
+		return state;
 	}
 
 	@Override

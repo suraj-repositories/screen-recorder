@@ -24,6 +24,7 @@ import javax.swing.Timer;
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
+import com.oranbyte.screenrec.constants.RecordingState;
 import com.oranbyte.screenrec.util.WindowFinder;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
@@ -45,6 +46,16 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private CaptureMode captureMode;
 	private RecordingMode recordingMode;
 
+	// True while a recording is actively RECORDING or PAUSED.
+	// While true, the selection rectangle is locked (no move/resize/reselect),
+	// since the region being recorded must not change mid-capture.
+	private boolean recordingActive = false;
+
+	// Optional link back to the toolbar so this panel can report selection
+	// progress (IDLE -> SELECTING -> READY). Wired up by whoever constructs
+	// both (typically SelectionFrame) via setControlFrame(...).
+	private ControlFrame controlFrame;
+
 	private int activeHandle = NONE;
 	private Point startPoint = null;
 	private Point anchorPoint = null;
@@ -58,13 +69,10 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		this.selectionFrame = selectionFrame;
 
 		CaptureMode cm = selectionFrame.getCaptureMode();
-		if (cm == null) {
-			captureMode = CaptureMode.RECTANGLE;
-		} else {
-			captureMode = cm;
-		}
+		captureMode = cm == null ? CaptureMode.RECTANGLE : cm;
 
-		RecordingMode md = selectionFrame.getRecordingMode();
+		RecordingMode rm = selectionFrame.getRecordingMode();
+		recordingMode = rm == null ? RecordingMode.SCREENSHOT : rm;
 
 		addMouseListener(this);
 		addMouseMotionListener(this);
@@ -82,7 +90,26 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		marchingAntsTimer.start();
 	}
 
+	/**
+	 * Links this panel to the toolbar so selection progress (IDLE / SELECTING /
+	 * READY) can be reported as the user draws the capture region.
+	 */
+	public void setControlFrame(ControlFrame controlFrame) {
+		this.controlFrame = controlFrame;
+	}
+
+	private void notifyState(RecordingState newState) {
+		if (controlFrame != null) {
+			controlFrame.setState(newState);
+		}
+	}
+
 	public void setCaptureMode(CaptureMode mode) {
+		if (recordingActive) {
+			// Capture region is locked while a recording is in progress.
+			return;
+		}
+
 		this.captureMode = mode;
 
 		isMoving = false;
@@ -95,9 +122,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		if (mode == CaptureMode.ENTIRE_SCREEN) {
 			selectedRectangle = computeFixedRectangle(mode);
 			isCreated = true;
+			notifyState(RecordingState.READY);
 		} else {
 			selectedRectangle = null;
 			isCreated = false;
+			notifyState(RecordingState.IDLE);
 		}
 
 		setCursor(mode == CaptureMode.RECTANGLE ? new Cursor(Cursor.CROSSHAIR_CURSOR) : Cursor.getDefaultCursor());
@@ -106,6 +135,41 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	public CaptureMode getCaptureMode() {
 		return captureMode;
+	}
+
+	/**
+	 * Called by the toolbar (ControlFrame) whenever the recording process step
+	 * changes, so this panel can enforce the right behavior for that step: -
+	 * RECORDING / PAUSED (recordingActive = true): selection is frozen. - other
+	 * steps (recordingActive = false): selection can be drawn/moved/resized.
+	 */
+	public void setRecordingActive(boolean recordingActive) {
+		this.recordingActive = recordingActive;
+
+		if (recordingActive) {
+			// Cancel any in-flight drag/resize interaction so it doesn't
+			// keep mutating the rectangle after recording has started.
+			isMoving = false;
+			dragOffset = null;
+			activeHandle = NONE;
+			anchorPoint = null;
+			startPoint = null;
+			setCursor(Cursor.getDefaultCursor());
+		}
+
+		repaint();
+	}
+
+	public boolean isRecordingActive() {
+		return recordingActive;
+	}
+
+	public void setRecordingMode(RecordingMode mode) {
+		this.recordingMode = mode;
+	}
+
+	public RecordingMode getRecordingMode() {
+		return recordingMode;
 	}
 
 	private Rectangle computeFixedRectangle(CaptureMode mode) {
@@ -166,6 +230,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		}
 		this.selectedRectangle = clampToImageBounds(new Rectangle(rect));
 		this.isCreated = true;
+		notifyState(RecordingState.READY);
 		repaint();
 	}
 
@@ -194,7 +259,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			g2d.drawRoundRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 					selectedRectangle.height, 8, 8);
 
-			if (isCreated) {
+			if (isCreated && !recordingActive) {
 				drawHandles(g2d);
 			}
 		}
@@ -280,6 +345,14 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mousePressed(MouseEvent e) {
+
+		// While a recording is RECORDING or PAUSED, the capture region is frozen:
+		// ignore all press interactions so the user can't accidentally
+		// move/resize/reselect the area being recorded.
+		if (recordingActive) {
+			return;
+		}
+
 		Point p = e.getPoint();
 
 		if (!isCreated) {
@@ -288,6 +361,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 					selectedRectangle = clampToImageBounds(new Rectangle(hoverRectangle));
 					isCreated = true;
 					hoverRectangle = null;
+					notifyState(RecordingState.READY);
 					repaint();
 				}
 				return;
@@ -296,12 +370,14 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			if (captureMode == CaptureMode.ENTIRE_SCREEN) {
 				selectedRectangle = computeFixedRectangle(captureMode);
 				isCreated = true;
+				notifyState(RecordingState.READY);
 				repaint();
 				return;
 			}
 
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
+			notifyState(RecordingState.SELECTING);
 			return;
 		}
 
@@ -355,9 +431,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			}
 
 			anchorPoint = new Point(anchorX, anchorY);
+			notifyState(RecordingState.SELECTING);
 		} else if (selectedRectangle.contains(p)) {
 			dragOffset = new Point(p.x - selectedRectangle.x, p.y - selectedRectangle.y);
 			isMoving = true;
+			notifyState(RecordingState.SELECTING);
 		} else if (captureMode == CaptureMode.RECTANGLE) {
 			isCreated = false;
 			isMoving = false;
@@ -366,16 +444,29 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			anchorPoint = null;
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
+			notifyState(RecordingState.SELECTING);
 		}
-		
-		
-		if() {
-			
-		}
+//
+//		if (recordingMode == RecordingMode.SCREENSHOT) {
+//			// Screenshots are a single fire-and-forget capture with no
+//			// ongoing "process step" beyond SELECTING/READY: the rectangle
+//			// stays freely editable right up until the user triggers the
+//			// actual capture action elsewhere in the UI.
+//		} else if (recordingMode == RecordingMode.VIDEO) {
+//			// Reaching this point means recordingActive is false (guarded
+//			// above), i.e. we're still adjusting the region pre-recording,
+//			// so editing the selection here is expected and allowed.
+//
+//		}
+
 	}
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
+		if (recordingActive) {
+			return;
+		}
+
 		Point p = e.getPoint();
 
 		if (!isCreated && selectedRectangle != null && startPoint != null) {
@@ -449,6 +540,12 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
+		if (recordingActive) {
+			return;
+		}
+
+		boolean wasFreshSelection = !isCreated;
+
 		if (!isCreated) {
 			isCreated = true;
 		}
@@ -457,6 +554,17 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		activeHandle = NONE;
 		anchorPoint = null;
 		startPoint = null;
+
+		// Selection finished (whether it's a brand-new drag, a resize, or a
+		// move) -> the region is ready to record/capture.
+		if (selectedRectangle != null && selectedRectangle.width >= MIN_SIZE && selectedRectangle.height >= MIN_SIZE) {
+			notifyState(RecordingState.READY);
+		} else if (wasFreshSelection) {
+			// Released without dragging out a usable rectangle: back to IDLE.
+			isCreated = false;
+			notifyState(RecordingState.IDLE);
+		}
+
 		repaint();
 	}
 
@@ -474,6 +582,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
+		if (recordingActive) {
+			setCursor(Cursor.getDefaultCursor());
+			return;
+		}
+
 		if (captureMode == CaptureMode.WINDOW && !isCreated) {
 			updateHoverRectangle(e.getPoint());
 			setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));

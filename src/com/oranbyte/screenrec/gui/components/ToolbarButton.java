@@ -18,15 +18,26 @@ import com.oranbyte.screenrec.constants.Icons;
 
 public class ToolbarButton extends JButton {
 
+	private static final long serialVersionUID = 1L;
 	private static final Font DEFAULT_FONT = AppConstant.APP_FONT;
+	private static final int BORDER_THICKNESS = 1;
 
 	private Insets padding = new Insets(7, 11, 7, 11);
-
 	private int borderRadius = 10;
+	private boolean hasBorder = true;
 
-	private Border createBorder(Color color) {
+	private Color currentBorderColor = AppColors.BORDER;
 
-		return BorderFactory.createCompoundBorder(new RoundedBorder(color, borderRadius, 1), new EmptyBorder(padding));
+	private Border buildBorder(Color color) {
+		Border outerBorder = hasBorder ? new RoundedBorder(color, borderRadius, BORDER_THICKNESS)
+				: new EmptyBorder(BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS);
+		Border innerBorder = new EmptyBorder(padding);
+		return BorderFactory.createCompoundBorder(outerBorder, innerBorder);
+	}
+
+	private void applyBorder(Color color) {
+		this.currentBorderColor = color;
+		super.setBorder(buildBorder(color));
 	}
 
 	public ToolbarButton(String text, Icons icon) {
@@ -48,46 +59,35 @@ public class ToolbarButton extends JButton {
 	}
 
 	private void initialize() {
-
 		setFocusable(false);
 		setFocusPainted(false);
-
 		setContentAreaFilled(false);
 		setOpaque(true);
-
 		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
 		setBackground(AppColors.BUTTON);
 		setForeground(AppColors.TEXT);
 		setFont(DEFAULT_FONT);
-
 		setHorizontalAlignment(LEFT);
 		setHorizontalTextPosition(RIGHT);
-
 		setVerticalAlignment(CENTER);
 		setVerticalTextPosition(CENTER);
-
 		setIconTextGap(8);
-
-		setBorder(createBorder(AppColors.BORDER));
-
+		applyBorder(AppColors.BORDER);
 		installHoverEffects();
 	}
 
 	private void installHoverEffects() {
-
 		addMouseListener(new MouseAdapter() {
-
 			@Override
 			public void mouseEntered(MouseEvent e) {
 				setBackground(AppColors.BUTTON_HOVER);
-				setBorder(createBorder(AppColors.BORDER_HOVER));
+				applyBorder(AppColors.BORDER_HOVER);
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
 				setBackground(AppColors.BUTTON);
-				setBorder(createBorder(AppColors.BORDER));
+				applyBorder(AppColors.BORDER);
 			}
 
 			@Override
@@ -97,16 +97,10 @@ public class ToolbarButton extends JButton {
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				if (contains(e.getPoint())) {
-					setBackground(AppColors.BUTTON_HOVER);
-				} else {
-					setBackground(AppColors.BUTTON);
-				}
+				setBackground(contains(e.getPoint()) ? AppColors.BUTTON_HOVER : AppColors.BUTTON);
 			}
 		});
 	}
-
-	/* ---------- Helper Methods ---------- */
 
 	public ToolbarButton setIconSize(Icons icon, int size) {
 		setIcon(icon.icon(size));
@@ -125,14 +119,15 @@ public class ToolbarButton extends JButton {
 
 	public ToolbarButton setPadding(int top, int left, int bottom, int right) {
 		padding = new Insets(top, left, bottom, right);
-
-		boolean hovered = getModel().isRollover();
-
-		setBorder(createBorder(hovered ? AppColors.BORDER_HOVER : AppColors.BORDER));
-
+		applyBorder(currentBorderColor);
 		revalidate();
 		repaint();
+		return this;
+	}
 
+	public ToolbarButton setHasBorder(boolean hasBorder) {
+		this.hasBorder = hasBorder;
+		applyBorder(currentBorderColor);
 		return this;
 	}
 
@@ -151,8 +146,18 @@ public class ToolbarButton extends JButton {
 		return this;
 	}
 
-	public void setBorderRadius(int borderRadius) {
-		this.borderRadius = borderRadius;
+	@Override
+	public void setBorder(Border border) {
+		hasBorder = border != null;
+		if (border == null) {
+			applyBorder(currentBorderColor);
+		} else {
+			super.setBorder(border);
+		}
 	}
 
+	public void setBorderRadius(int borderRadius) {
+		this.borderRadius = borderRadius;
+		applyBorder(currentBorderColor);
+	}
 }
