@@ -5,6 +5,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.geom.RoundRectangle2D;
@@ -14,9 +15,11 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JWindow;
 import javax.swing.SwingConstants;
+import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
@@ -28,6 +31,7 @@ import com.oranbyte.screenrec.gui.components.ImageSwitch;
 import com.oranbyte.screenrec.gui.components.RoundedBorder;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
+import com.oranbyte.screenrec.recorder.ScreenRecorder;
 
 public class ControlFrame extends JWindow {
 
@@ -50,15 +54,20 @@ public class ControlFrame extends JWindow {
 	private JLabel recordingTimeLabel;
 	private ToolbarButton micToggleButton;
 	private ToolbarButton speakerToggleButton;
-
 	private ToolbarButton closeButton;
 	private final int CONTROL_PADDING = 5;
 
 	private RecordingState state = RecordingState.IDLE;
+	private ScreenRecorder recorder;
+
+	private Timer recordingTimer;
+	private int elapsedSeconds = 0;
+
+	private Rectangle preRecordingLocation;
 
 	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
 
-		super(owner);
+		super(mainFrame);
 
 		this.mainFrame = mainFrame;
 		this.selectionFrame = selectionFrame;
@@ -67,7 +76,6 @@ public class ControlFrame extends JWindow {
 
 		initializeUI();
 
-		// Apply the initial (IDLE) visibility rules now that every control exists.
 		setState(RecordingState.IDLE);
 
 		pack();
@@ -82,6 +90,22 @@ public class ControlFrame extends JWindow {
 		setLocation(x, y);
 		setAlwaysOnTop(true);
 		setVisible(true);
+
+		initializeTimer();
+	}
+
+	private void initializeTimer() {
+		recordingTimer = new Timer(1000, e -> {
+			elapsedSeconds++;
+			updateElapsedLabel();
+		});
+	}
+
+	private void updateElapsedLabel() {
+		int h = elapsedSeconds / 3600;
+		int m = (elapsedSeconds % 3600) / 60;
+		int s = elapsedSeconds % 60;
+		recordingTimeLabel.setText(String.format("%02d:%02d:%02d", h, m, s));
 	}
 
 	private void initializeUI() {
@@ -169,43 +193,45 @@ public class ControlFrame extends JWindow {
 		recordingControlsPanel.setLayout(new BoxLayout(recordingControlsPanel, BoxLayout.X_AXIS));
 		recordingControlsPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
 
-		// Start
 		startButton = new ToolbarButton("Start", Icons.START);
-		startButton.addActionListener(e -> setState(RecordingState.RECORDING));
+		startButton.addActionListener(e -> {
+			setState(RecordingState.RECORDING);
+			startRecording();
+		});
 		startButton.setBorder(null);
 
-		// Pause
 		pauseButton = new ToolbarButton(Icons.PAUSE);
-		pauseButton.addActionListener(e -> setState(RecordingState.PAUSED));
+		pauseButton.addActionListener(e -> {
+			setState(RecordingState.PAUSED);
+			pauseRecording();
+		});
 		pauseButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		pauseButton.setBorder(null);
 
-		// Resume
 		playButton = new ToolbarButton(Icons.PLAY);
-		playButton.addActionListener(e -> setState(RecordingState.RECORDING));
+		playButton.addActionListener(e -> {
+			setState(RecordingState.RECORDING);
+			resumeRecording();
+		});
 		playButton.setBorder(null);
 		playButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 
-		// Stop
 		terminateButton = new ToolbarButton(Icons.STOP);
 		terminateButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		terminateButton.setBorder(null);
 		terminateButton.addActionListener(e -> {
-			recordingTimeLabel.setText("00:00:00");
 			setState(RecordingState.IDLE);
+			stopRecording();
 		});
 
-		// Timer
 		recordingTimeLabel = new JLabel("00:00:00");
 		recordingTimeLabel.setForeground(AppColors.TEXT);
 		recordingTimeLabel.setFont(AppConstant.APP_FONT.deriveFont(18f));
 
-		// Mic icon
 		micToggleButton = new ToolbarButton(Icons.MICROPHONE);
 		micToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		micToggleButton.setBorder(null);
 
-		// Desktop audio icon
 		speakerToggleButton = new ToolbarButton(Icons.VOLUME);
 		speakerToggleButton.setBorder(null);
 		speakerToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
@@ -229,25 +255,8 @@ public class ControlFrame extends JWindow {
 		recordingControlsPanel.add(speakerToggleButton);
 	}
 
-	/**
-	 * Single source of truth for what's visible/enabled at each step of the capture
-	 * flow:
-	 * <ul>
-	 * <li>IDLE - only the mode selectors (recording mode switch + capture mode
-	 * combo box) are shown; the recording controls panel is hidden entirely.</li>
-	 * <li>SELECTING - mode selectors hidden, recording panel shown with only the
-	 * Start button visible and disabled (selection isn't finished yet).</li>
-	 * <li>READY - same as SELECTING but Start is enabled (selection finished).</li>
-	 * <li>RECORDING - Start/Resume hidden, Pause + Terminate + timer + mic/ speaker
-	 * icons shown; mode selectors stay hidden and locked.</li>
-	 * <li>PAUSED - Pause replaced by Resume, Terminate + timer + mic/speaker stay
-	 * visible; mode selectors stay hidden and locked.</li>
-	 * </ul>
-	 */
 	public void setState(RecordingState newState) {
 		this.state = newState;
-
-		System.out.println(newState.toString());
 
 		boolean idle = newState == RecordingState.IDLE;
 		boolean selecting = newState == RecordingState.SELECTING;
@@ -324,6 +333,125 @@ public class ControlFrame extends JWindow {
 
 	public RecordingMode getRecordingMode() {
 		return recordingModeSwitch.getRecordingMode();
+	}
+
+	public void startRecording() {
+		if (selectionFrame == null || selectionFrame.drawPanel == null
+				|| selectionFrame.drawPanel.selectedRectangle == null) {
+			JOptionPane.showMessageDialog(this, "Please create a selection first.");
+			return;
+		}
+
+		Rectangle captureArea = ensureEvenDimensions(selectionFrame.drawPanel.selectedRectangle);
+		if (captureArea.width <= 0 || captureArea.height <= 0) {
+
+			JOptionPane.showMessageDialog(this, "Please select a valid recording area.");
+			return;
+		}
+
+		avoidOverlapWithCaptureArea(captureArea);
+
+		selectionFrame.setVisible(false);
+
+		recorder = new ScreenRecorder(captureArea);
+		recorder.start();
+
+		elapsedSeconds = 0;
+		updateElapsedLabel();
+		recordingTimer.start();
+
+		toFront();
+		requestFocus();
+	}
+
+	public void pauseRecording() {
+		recordingTimer.stop();
+
+		if (recorder != null) {
+			recorder.pause();
+		}
+	}
+
+	public void resumeRecording() {
+		recordingTimer.start();
+
+		if (recorder != null)
+			recorder.resume();
+	}
+
+	public void stopRecording() {
+
+		recordingTimer.stop();
+		elapsedSeconds = 0;
+		updateElapsedLabel();
+
+		if (recorder != null) {
+			recorder.stop();
+			recorder = null;
+		}
+
+		restoreLocationIfMoved();
+
+		if (selectionFrame != null) {
+			selectionFrame.dispose();
+		}
+	}
+
+	private void avoidOverlapWithCaptureArea(Rectangle captureArea) {
+
+		Rectangle myBounds = getBounds();
+
+		if (!myBounds.intersects(captureArea)) {
+			preRecordingLocation = null;
+			return;
+		}
+
+		preRecordingLocation = myBounds;
+
+		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+		int margin = 10;
+		int newX = myBounds.x;
+		int newY;
+
+		if (captureArea.y - myBounds.height - margin >= 0) {
+			newY = captureArea.y - myBounds.height - margin;
+		} else if (captureArea.y + captureArea.height + myBounds.height + margin <= screen.height) {
+			newY = captureArea.y + captureArea.height + margin;
+		} else {
+			newY = 0;
+			if (captureArea.x <= 0 && captureArea.x + captureArea.width >= screen.width) {
+				newX = Math.max(0, screen.width - myBounds.width - margin);
+			}
+		}
+
+		setLocation(newX, newY);
+	}
+
+	private void restoreLocationIfMoved() {
+		if (preRecordingLocation != null) {
+			setLocation(preRecordingLocation.x, preRecordingLocation.y);
+			preRecordingLocation = null;
+		}
+	}
+
+	public static Rectangle ensureEvenDimensions(Rectangle rect) {
+
+		if (rect == null) {
+			return null;
+		}
+
+		int width = rect.width;
+		int height = rect.height;
+
+		if ((width & 1) == 1) {
+			width--;
+		}
+
+		if ((height & 1) == 1) {
+			height--;
+		}
+
+		return new Rectangle(rect.x, rect.y, width, height);
 	}
 
 }

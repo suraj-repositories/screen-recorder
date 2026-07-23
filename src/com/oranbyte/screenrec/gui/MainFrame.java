@@ -1,14 +1,16 @@
 package com.oranbyte.screenrec.gui;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Rectangle;
+import java.awt.Component;
+import java.awt.Font;
+import java.awt.GridBagLayout;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.JButton;
+import javax.swing.BoxLayout;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -21,17 +23,12 @@ import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
-import com.oranbyte.screenrec.recorder.ScreenRecorder;
 
 public class MainFrame extends JFrame {
 
 	private static final long serialVersionUID = 1L;
 
 	private SelectionFrame selectionFrame;
-	private ScreenRecorder recorder;
-
-	private JButton recordButton;
-	private boolean recording = false;
 
 	public MainFrame() {
 		init();
@@ -45,19 +42,37 @@ public class MainFrame extends JFrame {
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BorderLayout());
 
-		setSize(700, 450);
+		setSize(600, 300);
 		setLocationRelativeTo(null);
 
-		add(initToolbar(), BorderLayout.NORTH);
+		JToolBar toolbar = initToolbar();
 
-		recordButton = new JButton("Start");
-		recordButton.setFont(AppConstant.APP_FONT);
-		recordButton.setBackground(Color.GREEN.darker());
-		recordButton.setForeground(Color.WHITE);
-		recordButton.setFocusable(false);
-		recordButton.addActionListener(e -> toggleRecording());
+		add(toolbar, BorderLayout.NORTH);
 
-		add(recordButton, BorderLayout.CENTER);
+		JPanel panel = new JPanel(new GridBagLayout());
+		panel.setOpaque(false);
+
+		JPanel content = new JPanel();
+		content.setOpaque(false);
+		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+
+		JLabel titleLabel = new JLabel("No Recording Active");
+		titleLabel.setFont(AppConstant.APP_FONT.deriveFont(Font.BOLD, 24f));
+		titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		titleLabel.setForeground(AppColors.TEXT);
+
+		JLabel subtitleLabel = new JLabel("Select a capture mode and click Start to begin recording.");
+		subtitleLabel.setFont(AppConstant.APP_FONT.deriveFont(14f));
+		subtitleLabel.setForeground(AppColors.TEXT_SECONDARY);
+		subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+		content.add(titleLabel);
+		content.add(Box.createVerticalStrut(8));
+		content.add(subtitleLabel);
+
+		panel.add(content);
+
+		add(panel, BorderLayout.CENTER);
 
 		SwingUtilities.invokeLater(() -> {
 			selectionFrame = new SelectionFrame();
@@ -110,84 +125,6 @@ public class MainFrame extends JFrame {
 		toolbar.add(captureMode);
 
 		return toolbar;
-	}
-
-	public void startRecording() {
-
-		if (selectionFrame == null || selectionFrame.drawPanel == null
-				|| selectionFrame.drawPanel.selectedRectangle == null) {
-
-			JOptionPane.showMessageDialog(this, "Please create a selection first.");
-			return;
-		}
-
-		Rectangle captureArea = ensureEvenDimensions(selectionFrame.drawPanel.selectedRectangle);
-
-		if (captureArea.width <= 0 || captureArea.height <= 0) {
-
-			JOptionPane.showMessageDialog(this, "Please select a valid recording area.");
-			return;
-		}
-
-		selectionFrame.setVisible(false);
-
-		recorder = new ScreenRecorder(captureArea);
-		recorder.start();
-	}
-
-	public void stopRecording() {
-
-		if (recorder != null) {
-			recorder.stop();
-			recorder = null;
-		}
-
-		if (selectionFrame != null) {
-			selectionFrame.dispose();
-			selectionFrame = null;
-		}
-	}
-
-	private void toggleRecording() {
-
-		if (!recording) {
-
-			startRecording();
-
-			if (recorder != null) {
-				recording = true;
-				recordButton.setText("Stop");
-				recordButton.setBackground(Color.RED);
-			}
-
-		} else {
-
-			stopRecording();
-
-			recording = false;
-			recordButton.setText("Start");
-			recordButton.setBackground(Color.GREEN.darker());
-		}
-	}
-
-	public static Rectangle ensureEvenDimensions(Rectangle rect) {
-
-		if (rect == null) {
-			return null;
-		}
-
-		int width = rect.width;
-		int height = rect.height;
-
-		if ((width & 1) == 1) {
-			width--;
-		}
-
-		if ((height & 1) == 1) {
-			height--;
-		}
-
-		return new Rectangle(rect.x, rect.y, width, height);
 	}
 
 }

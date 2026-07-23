@@ -46,14 +46,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private CaptureMode captureMode;
 	private RecordingMode recordingMode;
 
-	// True while a recording is actively RECORDING or PAUSED.
-	// While true, the selection rectangle is locked (no move/resize/reselect),
-	// since the region being recorded must not change mid-capture.
 	private boolean recordingActive = false;
 
-	// Optional link back to the toolbar so this panel can report selection
-	// progress (IDLE -> SELECTING -> READY). Wired up by whoever constructs
-	// both (typically SelectionFrame) via setControlFrame(...).
 	private ControlFrame controlFrame;
 
 	private int activeHandle = NONE;
@@ -90,10 +84,6 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		marchingAntsTimer.start();
 	}
 
-	/**
-	 * Links this panel to the toolbar so selection progress (IDLE / SELECTING /
-	 * READY) can be reported as the user draws the capture region.
-	 */
 	public void setControlFrame(ControlFrame controlFrame) {
 		this.controlFrame = controlFrame;
 	}
@@ -106,7 +96,6 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	public void setCaptureMode(CaptureMode mode) {
 		if (recordingActive) {
-			// Capture region is locked while a recording is in progress.
 			return;
 		}
 
