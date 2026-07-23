@@ -52,6 +52,7 @@ public class ControlFrame extends JWindow {
 	private ToolbarButton speakerToggleButton;
 
 	private ToolbarButton closeButton;
+	private final int CONTROL_PADDING = 5;
 
 	private RecordingState state = RecordingState.IDLE;
 
@@ -117,6 +118,7 @@ public class ControlFrame extends JWindow {
 		closeButton = new ToolbarButton(Icons.CLOSE);
 		closeButton.setHorizontalAlignment(SwingConstants.CENTER);
 		closeButton.setPreferredSize(new Dimension(42, 42));
+		closeButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 
 		closeButton.addActionListener(e -> {
 			selectionFrame.closeSelection();
@@ -175,15 +177,18 @@ public class ControlFrame extends JWindow {
 		// Pause
 		pauseButton = new ToolbarButton(Icons.PAUSE);
 		pauseButton.addActionListener(e -> setState(RecordingState.PAUSED));
+		pauseButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		pauseButton.setBorder(null);
 
 		// Resume
 		playButton = new ToolbarButton(Icons.PLAY);
 		playButton.addActionListener(e -> setState(RecordingState.RECORDING));
 		playButton.setBorder(null);
+		playButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 
 		// Stop
 		terminateButton = new ToolbarButton(Icons.STOP);
+		terminateButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		terminateButton.setBorder(null);
 		terminateButton.addActionListener(e -> {
 			recordingTimeLabel.setText("00:00:00");
@@ -197,17 +202,17 @@ public class ControlFrame extends JWindow {
 
 		// Mic icon
 		micToggleButton = new ToolbarButton(Icons.MICROPHONE);
+		micToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		micToggleButton.setBorder(null);
 
 		// Desktop audio icon
 		speakerToggleButton = new ToolbarButton(Icons.VOLUME);
 		speakerToggleButton.setBorder(null);
+		speakerToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 
 		recordingControlsPanel.add(startButton);
-		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
 		recordingControlsPanel.add(pauseButton);
-		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
 		recordingControlsPanel.add(playButton);
 		recordingControlsPanel.add(Box.createHorizontalStrut(12));
