@@ -126,18 +126,10 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		return captureMode;
 	}
 
-	/**
-	 * Called by the toolbar (ControlFrame) whenever the recording process step
-	 * changes, so this panel can enforce the right behavior for that step: -
-	 * RECORDING / PAUSED (recordingActive = true): selection is frozen. - other
-	 * steps (recordingActive = false): selection can be drawn/moved/resized.
-	 */
 	public void setRecordingActive(boolean recordingActive) {
 		this.recordingActive = recordingActive;
 
 		if (recordingActive) {
-			// Cancel any in-flight drag/resize interaction so it doesn't
-			// keep mutating the rectangle after recording has started.
 			isMoving = false;
 			dragOffset = null;
 			activeHandle = NONE;
@@ -335,9 +327,6 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	@Override
 	public void mousePressed(MouseEvent e) {
 
-		// While a recording is RECORDING or PAUSED, the capture region is frozen:
-		// ignore all press interactions so the user can't accidentally
-		// move/resize/reselect the area being recorded.
 		if (recordingActive) {
 			return;
 		}
@@ -435,18 +424,6 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
 			notifyState(RecordingState.SELECTING);
 		}
-//
-//		if (recordingMode == RecordingMode.SCREENSHOT) {
-//			// Screenshots are a single fire-and-forget capture with no
-//			// ongoing "process step" beyond SELECTING/READY: the rectangle
-//			// stays freely editable right up until the user triggers the
-//			// actual capture action elsewhere in the UI.
-//		} else if (recordingMode == RecordingMode.VIDEO) {
-//			// Reaching this point means recordingActive is false (guarded
-//			// above), i.e. we're still adjusting the region pre-recording,
-//			// so editing the selection here is expected and allowed.
-//
-//		}
 
 	}
 
@@ -544,12 +521,9 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		anchorPoint = null;
 		startPoint = null;
 
-		// Selection finished (whether it's a brand-new drag, a resize, or a
-		// move) -> the region is ready to record/capture.
 		if (selectedRectangle != null && selectedRectangle.width >= MIN_SIZE && selectedRectangle.height >= MIN_SIZE) {
 			notifyState(RecordingState.READY);
 		} else if (wasFreshSelection) {
-			// Released without dragging out a usable rectangle: back to IDLE.
 			isCreated = false;
 			notifyState(RecordingState.IDLE);
 		}

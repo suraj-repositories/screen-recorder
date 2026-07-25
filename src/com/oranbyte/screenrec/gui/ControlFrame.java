@@ -1,5 +1,6 @@
 package com.oranbyte.screenrec.gui;
 
+import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -7,9 +8,14 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -19,6 +25,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JWindow;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
@@ -32,6 +39,7 @@ import com.oranbyte.screenrec.gui.components.RoundedBorder;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
 import com.oranbyte.screenrec.recorder.ScreenRecorder;
+import com.oranbyte.screenrec.recorder.VideoUtils;
 
 public class ControlFrame extends JWindow {
 
@@ -90,6 +98,8 @@ public class ControlFrame extends JWindow {
 		setLocation(x, y);
 		setAlwaysOnTop(true);
 		setVisible(true);
+
+		com.oranbyte.screenrec.util.ScreenCaptureExclusion.excludeFromCapture(this);
 
 		initializeTimer();
 	}
@@ -222,6 +232,7 @@ public class ControlFrame extends JWindow {
 		terminateButton.addActionListener(e -> {
 			setState(RecordingState.IDLE);
 			stopRecording();
+			System.exit(0);
 		});
 
 		recordingTimeLabel = new JLabel("00:00:00");
@@ -256,6 +267,11 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void setState(RecordingState newState) {
+		if (!SwingUtilities.isEventDispatchThread()) {
+			SwingUtilities.invokeLater(() -> setState(newState));
+			return;
+		}
+
 		this.state = newState;
 
 		boolean idle = newState == RecordingState.IDLE;
@@ -263,32 +279,45 @@ public class ControlFrame extends JWindow {
 		boolean ready = newState == RecordingState.READY;
 		boolean recording = newState == RecordingState.RECORDING;
 		boolean paused = newState == RecordingState.PAUSED;
-
-		modeControlsPanel.setVisible(idle);
-		recordingControlsPanel.setVisible(!idle);
-
-		startButton.setVisible(selecting || ready);
-		startButton.setEnabled(ready);
-
-		pauseButton.setVisible(recording);
-		playButton.setVisible(paused);
-		terminateButton.setVisible(recording || paused);
-
-		recordingTimeLabel.setVisible(recording || paused || selecting || ready);
-		micToggleButton.setVisible(recording || paused || selecting || ready);
-		speakerToggleButton.setVisible(recording || paused || selecting || ready);
-
 		boolean locked = recording || paused;
-		captureModeComboBox.setEnabled(!locked);
-		recordingModeSwitch.setEnabled(!locked);
 
-		if (selectionFrame != null && selectionFrame.drawPanel != null) {
-			selectionFrame.drawPanel.setRecordingActive(locked);
+		RecordingMode rMode = getRecordingMode();
+
+		if (rMode == RecordingMode.VIDEO) {
+			modeControlsPanel.setVisible(idle);
+			recordingControlsPanel.setVisible(!idle);
+			startButton.setVisible(selecting || ready);
+			startButton.setEnabled(ready);
+			pauseButton.setVisible(recording);
+			playButton.setVisible(paused);
+			terminateButton.setVisible(recording || paused);
+			recordingTimeLabel.setVisible(recording || paused || selecting || ready);
+			micToggleButton.setVisible(recording || paused || selecting || ready);
+			speakerToggleButton.setVisible(recording || paused || selecting || ready);
+			captureModeComboBox.setEnabled(!locked);
+			recordingModeSwitch.setEnabled(!locked);
+
+			if (selectionFrame != null && selectionFrame.drawPanel != null) {
+				selectionFrame.drawPanel.setRecordingActive(locked);
+			}
+		} else if (rMode == RecordingMode.SCREENSHOT) {
+			modeControlsPanel.setVisible(true);
+			recordingControlsPanel.setVisible(false);
+
+			if (selectionFrame != null && selectionFrame.drawPanel != null) {
+				selectionFrame.drawPanel.setRecordingActive(false);
+
+				if (ready || locked) {
+					if (takeScreenshot()) {
+						System.exit(0);
+					}
+				}
+			}
+
 		}
 
 		root.revalidate();
 		root.repaint();
-
 		pack();
 		setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 10, 10));
 	}
@@ -335,6 +364,73 @@ public class ControlFrame extends JWindow {
 		return recordingModeSwitch.getRecordingMode();
 	}
 
+	public boolean takeScreenshot() {
+
+		if (selectionFrame == null || selectionFrame.drawPanel == null
+				|| selectionFrame.drawPanel.selectedRectangle == null) {
+			JOptionPane.showMessageDialog(this, "Please create a selection first.");
+			return false;
+		}
+
+		Rectangle captureArea = ensureEvenDimensions(selectionFrame.drawPanel.selectedRectangle);
+		if (captureArea.width <= 0 || captureArea.height <= 0) {
+			JOptionPane.showMessageDialog(this, "Please select a valid capture area.");
+			return false;
+		}
+
+		boolean wasControlFrameVisible = isVisible();
+
+		selectionFrame.setVisible(false);
+		setVisible(false);
+
+		try {
+			Thread.sleep(150);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			restoreAfterScreenshot(wasControlFrameVisible);
+			return false;
+		}
+
+		BufferedImage image;
+		try {
+			Robot robot = new Robot();
+			image = robot.createScreenCapture(captureArea);
+		} catch (AWTException e) {
+			JOptionPane.showMessageDialog(this, "Failed to capture screenshot: " + e.getMessage());
+			restoreAfterScreenshot(wasControlFrameVisible);
+			return false;
+		}
+
+		File saveDir = new File(AppConstant.SAVE_LOCATION);
+		if (!saveDir.exists() && !saveDir.mkdirs()) {
+			JOptionPane.showMessageDialog(this, "Failed to create save directory.");
+			restoreAfterScreenshot(wasControlFrameVisible);
+			return false;
+		}
+
+		String outputFileName = AppConstant.SAVE_LOCATION + File.separator + "orange_" + System.currentTimeMillis()
+				+ ".png";
+
+		try {
+			ImageIO.write(image, "png", new File(outputFileName));
+		} catch (IOException e) {
+			JOptionPane.showMessageDialog(this, "Failed to save screenshot: " + e.getMessage());
+			restoreAfterScreenshot(wasControlFrameVisible);
+			return false;
+		}
+
+		VideoUtils.showSaveDialog(outputFileName);
+		return true;
+	}
+
+	private void restoreAfterScreenshot(boolean wasControlFrameVisible) {
+		if (wasControlFrameVisible) {
+			setVisible(true);
+			toFront();
+			requestFocus();
+		}
+	}
+
 	public void startRecording() {
 		if (selectionFrame == null || selectionFrame.drawPanel == null
 				|| selectionFrame.drawPanel.selectedRectangle == null) {
@@ -348,8 +444,6 @@ public class ControlFrame extends JWindow {
 			JOptionPane.showMessageDialog(this, "Please select a valid recording area.");
 			return;
 		}
-
-		avoidOverlapWithCaptureArea(captureArea);
 
 		selectionFrame.setVisible(false);
 
@@ -395,36 +489,6 @@ public class ControlFrame extends JWindow {
 		if (selectionFrame != null) {
 			selectionFrame.dispose();
 		}
-	}
-
-	private void avoidOverlapWithCaptureArea(Rectangle captureArea) {
-
-		Rectangle myBounds = getBounds();
-
-		if (!myBounds.intersects(captureArea)) {
-			preRecordingLocation = null;
-			return;
-		}
-
-		preRecordingLocation = myBounds;
-
-		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-		int margin = 10;
-		int newX = myBounds.x;
-		int newY;
-
-		if (captureArea.y - myBounds.height - margin >= 0) {
-			newY = captureArea.y - myBounds.height - margin;
-		} else if (captureArea.y + captureArea.height + myBounds.height + margin <= screen.height) {
-			newY = captureArea.y + captureArea.height + margin;
-		} else {
-			newY = 0;
-			if (captureArea.x <= 0 && captureArea.x + captureArea.width >= screen.width) {
-				newX = Math.max(0, screen.width - myBounds.width - margin);
-			}
-		}
-
-		setLocation(newX, newY);
 	}
 
 	private void restoreLocationIfMoved() {
