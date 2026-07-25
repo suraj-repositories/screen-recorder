@@ -232,7 +232,6 @@ public class ControlFrame extends JWindow {
 		terminateButton.addActionListener(e -> {
 			setState(RecordingState.IDLE);
 			stopRecording();
-			System.exit(0);
 		});
 
 		recordingTimeLabel = new JLabel("00:00:00");
@@ -309,7 +308,7 @@ public class ControlFrame extends JWindow {
 
 				if (ready || locked) {
 					if (takeScreenshot()) {
-						System.exit(0);
+//						System.exit(0);
 					}
 				}
 			}
@@ -418,7 +417,7 @@ public class ControlFrame extends JWindow {
 			restoreAfterScreenshot(wasControlFrameVisible);
 			return false;
 		}
-
+		System.out.println("here 1");
 		VideoUtils.showSaveDialog(outputFileName);
 		return true;
 	}

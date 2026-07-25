@@ -132,6 +132,7 @@ public class ScreenRecorder {
 			System.err.println("Error during recording: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
+
 			if (writer != null) {
 				try {
 					if (framesEncoded > 0) {
@@ -143,7 +144,6 @@ public class ScreenRecorder {
 					System.err.println("Failed to finalize video trailer: " + e.getMessage());
 				}
 			}
-
 			VideoUtils.showSaveDialog(outputFileName);
 		}
 	}
