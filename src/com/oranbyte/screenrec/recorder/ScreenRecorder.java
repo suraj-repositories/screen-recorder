@@ -1,15 +1,18 @@
 package com.oranbyte.screenrec.recorder;
 
+import java.awt.Desktop;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Robot;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.util.CursorUtils;
+import com.oranbyte.screenrec.util.NotificationUtil;
 import com.xuggle.mediatool.IMediaWriter;
 import com.xuggle.mediatool.ToolFactory;
 import com.xuggle.xuggler.ICodec;
@@ -144,7 +147,25 @@ public class ScreenRecorder {
 					System.err.println("Failed to finalize video trailer: " + e.getMessage());
 				}
 			}
-			VideoUtils.showSaveDialog(outputFileName);
+
+			NotificationUtil.notifyVideo("Video saved", outputFileName, new File(outputFileName), () -> {
+
+				try {
+					System.out.println("clicked");
+					Desktop.getDesktop().open(new File(outputFileName));
+				} catch (IOException ex) {
+					ex.printStackTrace();
+				}
+			});
+			System.out.println(outputFileName);
+			new Thread(() -> {
+				try {
+					Thread.sleep(3000);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+//				System.exit(0);
+			}, "Shutdown Thread").start();
 		}
 	}
 

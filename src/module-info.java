@@ -11,6 +11,7 @@ module ScreenRecorder {
 	requires com.sun.jna.platform;
 
 	opens com.oranbyte.screenrec.util to com.sun.jna;
+
 //
 //	exports com.oranbyte.screenrec.util;
 //	exports com.oranbyte.screenrec.recorder;
