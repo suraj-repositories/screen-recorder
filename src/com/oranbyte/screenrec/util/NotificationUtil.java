@@ -23,7 +23,7 @@ public class NotificationUtil {
 	}
 
 	private static String snoreToastPath = AppConstant.SNORE_TOAST_PATH;
-	private static String appId = "OranByte.ScreenRecorder";
+	private static String appId = AppConstant.APP_NAME;
 	private static final String PIPE_NAME = "OranByte.ScreenRecorder";
 
 	private static TrayIcon trayIcon;
@@ -88,13 +88,17 @@ public class NotificationUtil {
 	}
 
 	public static void notifyVideo(String title, String message, File videoFile, NotificationClickListener onClick) {
+
 		if (videoFile == null || !videoFile.exists()) {
 			notify(title, message, onClick);
 			return;
 		}
-		File frame = extractVideoThumbnail(videoFile);
-		File toastImage = frame != null ? prepareToastImage(frame) : null;
-		showToast(title, message, toastImage, onClick);
+
+		new Thread(() -> {
+			File frame = extractVideoThumbnail(videoFile);
+			File img = frame != null ? prepareToastImage(frame) : Icons.PLAY_VIDEO_CIRCLE.file();
+			showToast(title, message, img, onClick);
+		}, "VideoNotification").start();
 	}
 
 	private static void showToast(String title, String message, File image, NotificationClickListener onClick) {
@@ -125,10 +129,10 @@ public class NotificationUtil {
 		args.add(snoreToastPath);
 
 		args.add("-t");
-		args.add(AppConstant.APP_NAME);
+		args.add(title);
 
 		args.add("-m");
-		args.add(buildBody(title, message));
+		args.add(message);
 
 		args.add("-appID");
 		args.add(appId);

@@ -13,6 +13,6 @@ module ScreenRecorder {
 	opens com.oranbyte.screenrec.util to com.sun.jna;
 
 //
-//	exports com.oranbyte.screenrec.util;
-//	exports com.oranbyte.screenrec.recorder;
+	exports com.oranbyte.screenrec.util;
+	exports com.oranbyte.screenrec.recorder;
 }

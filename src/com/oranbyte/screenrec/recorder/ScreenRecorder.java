@@ -148,7 +148,7 @@ public class ScreenRecorder {
 				}
 			}
 
-			NotificationUtil.notifyVideo("Video saved", outputFileName, new File(outputFileName), () -> {
+			NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName), () -> {
 
 				try {
 					System.out.println("clicked");
@@ -157,6 +157,7 @@ public class ScreenRecorder {
 					ex.printStackTrace();
 				}
 			});
+
 			System.out.println(outputFileName);
 			new Thread(() -> {
 				try {
