@@ -76,7 +76,7 @@ public class ScreenRecorder {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
 		String timestamp = LocalDateTime.now().format(formatter);
 
-		this.outputFileName = AppConstant.SAVE_LOCATION + File.separator + "Screen Recording " + timestamp + ".mp4";
+		this.outputFileName = AppConstant.SAVE_LOCATION + File.separator + "Recording " + timestamp + ".mp4";
 	}
 
 	public ScreenRecorder(Rectangle captureArea, boolean isMicrophoneEnabled, boolean isSpeakerEnabled) {
