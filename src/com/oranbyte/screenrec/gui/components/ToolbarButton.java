@@ -25,6 +25,7 @@ public class ToolbarButton extends JButton {
 	private static final long serialVersionUID = 1L;
 	private static final Font DEFAULT_FONT = AppConstant.APP_FONT;
 	private static final int BORDER_THICKNESS = 1;
+	public static final int DEFAULT_ICON_SIZE = 32;
 
 	private Insets padding = new Insets(7, 11, 7, 11);
 	private int borderRadius = 10;
@@ -46,7 +47,7 @@ public class ToolbarButton extends JButton {
 	}
 
 	public ToolbarButton(String text, Icons icon) {
-		this(text, icon, 32);
+		this(text, icon, DEFAULT_ICON_SIZE);
 	}
 
 	public ToolbarButton(String text, Icons icon, int iconSize) {
@@ -56,6 +57,10 @@ public class ToolbarButton extends JButton {
 
 	public ToolbarButton(Icons icon) {
 		this("", icon);
+	}
+
+	public ToolbarButton(Icons icon, int iconSize) {
+		this("", icon, iconSize);
 	}
 
 	public ToolbarButton(String text) {

@@ -4,11 +4,14 @@ import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.io.File;
 
-import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
+
+import com.oranbyte.screenrec.constants.AppConstant;
+import com.oranbyte.screenrec.constants.Icons;
+import com.oranbyte.screenrec.gui.components.ToolbarButton;
 
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
@@ -22,11 +25,12 @@ import javafx.util.Duration;
 public class VideoPlayerPanel extends JPanel {
 
 	private final JFXPanel fxPanel = new JFXPanel();
+	private static final int DEFAULT_ICON_SIZE = 20;
 
 	private MediaPlayer mediaPlayer;
 
-	private JButton playPauseButton;
-	private JButton volumeButton;
+	private ToolbarButton playPauseButton;
+	private ToolbarButton volumeButton;
 
 	private JSlider progressSlider;
 
@@ -47,7 +51,7 @@ public class VideoPlayerPanel extends JPanel {
 
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
-		playPauseButton = new JButton("▶");
+		playPauseButton = new ToolbarButton(Icons.PLAY, DEFAULT_ICON_SIZE);
 
 		playPauseButton.addActionListener(e -> {
 
@@ -62,18 +66,18 @@ public class VideoPlayerPanel extends JPanel {
 
 					mediaPlayer.pause();
 
-					SwingUtilities.invokeLater(() -> playPauseButton.setText("▶"));
+					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(Icons.PAUSE, DEFAULT_ICON_SIZE));
 
 				} else {
 
 					mediaPlayer.play();
 
-					SwingUtilities.invokeLater(() -> playPauseButton.setText("⏸"));
+					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(Icons.PLAY, DEFAULT_ICON_SIZE));
 				}
 			});
 		});
 
-		volumeButton = new JButton("🔊");
+		volumeButton = new ToolbarButton(Icons.SPEAKER, DEFAULT_ICON_SIZE);
 
 		volumeButton.addActionListener(e -> {
 
@@ -86,18 +90,19 @@ public class VideoPlayerPanel extends JPanel {
 
 				mediaPlayer.setMute(!mute);
 
-				SwingUtilities.invokeLater(() -> volumeButton.setText(!mute ? "🔇" : "🔊"));
+				volumeButton.setAllowed(!mute);
 
 			});
 
 		});
 
 		timeLabel = new JLabel("00:00 / 00:00");
+		timeLabel.setFont(AppConstant.APP_FONT.deriveFont(14f));
 
 		buttons.add(playPauseButton);
 		buttons.add(volumeButton);
 
-		progressSlider = new JSlider(0, 100, 0);
+		progressSlider = new VideoProgressSlider();
 
 		progressSlider.addChangeListener(e -> {
 

@@ -9,8 +9,6 @@ module ScreenRecorder {
 	requires xuggle.xuggler;
 	requires com.sun.jna;
 	requires com.sun.jna.platform;
-	requires uk.co.caprica.vlcj;
-	requires uk.co.caprica.vlcj.natives;
 
 	requires javafx.controls;
 	requires javafx.graphics;
@@ -19,7 +17,6 @@ module ScreenRecorder {
 
 	opens com.oranbyte.screenrec.util to com.sun.jna;
 
-//
 	exports com.oranbyte.screenrec.util;
 	exports com.oranbyte.screenrec.recorder;
 }

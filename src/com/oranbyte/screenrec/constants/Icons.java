@@ -14,7 +14,7 @@ public enum Icons {
 
 	PLUS("plus.png"), FAVICON("favicon.png"), CAMERA("camera.png"), VIDEO("video.png"), CLOSE("close.png"),
 	MICROPHONE("microphone.png"), START("start.png"), STOP("stop.png"), PAUSE("pause.png"), PLAY("play.png"),
-	VOLUME("volume.png"), PLAY_VIDEO_CIRCLE("play_video_circle.png");
+	VOLUME("volume.png"), PLAY_VIDEO_CIRCLE("play_video_circle.png"), SPEAKER("speaker.png");
 
 	private static final String BASE_PATH = "/com/oranbyte/screenrec/icons/";
 
