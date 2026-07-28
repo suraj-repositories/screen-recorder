@@ -1,9 +1,13 @@
 package com.oranbyte.screenrec.gui.components;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
@@ -25,6 +29,7 @@ public class ToolbarButton extends JButton {
 	private Insets padding = new Insets(7, 11, 7, 11);
 	private int borderRadius = 10;
 	private boolean hasBorder = true;
+	private boolean isAllowed = true;
 
 	private Color currentBorderColor = AppColors.BORDER;
 
@@ -160,4 +165,35 @@ public class ToolbarButton extends JButton {
 		this.borderRadius = borderRadius;
 		applyBorder(currentBorderColor);
 	}
+
+	@Override
+	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
+
+		if (!isAllowed) {
+			Graphics2D g2 = (Graphics2D) g.create();
+
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+			g2.setColor(AppColors.PRIMARY);
+			g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+			int margin = 8;
+			g2.drawLine(margin, getHeight() - margin, getWidth() - margin, margin);
+
+			g2.dispose();
+		}
+	}
+
+	public boolean isAllowed() {
+		return isAllowed;
+	}
+
+	public void setAllowed(boolean allowed) {
+		if (this.isAllowed != allowed) {
+			this.isAllowed = allowed;
+			repaint();
+		}
+	}
+
 }

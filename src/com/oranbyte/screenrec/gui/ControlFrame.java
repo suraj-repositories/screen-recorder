@@ -14,6 +14,8 @@ import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -39,7 +41,7 @@ import com.oranbyte.screenrec.gui.components.RoundedBorder;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
 import com.oranbyte.screenrec.recorder.ScreenRecorder;
-import com.oranbyte.screenrec.recorder.VideoUtils;
+import com.oranbyte.screenrec.util.NotificationUtil;
 
 public class ControlFrame extends JWindow {
 
@@ -70,6 +72,8 @@ public class ControlFrame extends JWindow {
 
 	private Timer recordingTimer;
 	private int elapsedSeconds = 0;
+	private boolean isMicrophoneEnabled = false;
+	private boolean isSpeakerEnabled = true;
 
 	private Rectangle preRecordingLocation;
 
@@ -208,7 +212,6 @@ public class ControlFrame extends JWindow {
 			setState(RecordingState.RECORDING);
 			startRecording();
 		});
-		startButton.setBorder(null);
 
 		pauseButton = new ToolbarButton(Icons.PAUSE);
 		pauseButton.addActionListener(e -> {
@@ -241,10 +244,27 @@ public class ControlFrame extends JWindow {
 		micToggleButton = new ToolbarButton(Icons.MICROPHONE);
 		micToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		micToggleButton.setBorder(null);
+		micToggleButton.setAllowed(isMicrophoneEnabled);
+		micToggleButton.addActionListener(e -> {
+
+			isMicrophoneEnabled = !isMicrophoneEnabled;
+			micToggleButton.setAllowed(isMicrophoneEnabled);
+			if (recorder != null) {
+				recorder.setMicrophoneEnabled(isMicrophoneEnabled);
+			}
+		});
 
 		speakerToggleButton = new ToolbarButton(Icons.VOLUME);
 		speakerToggleButton.setBorder(null);
 		speakerToggleButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
+		speakerToggleButton.addActionListener(e -> {
+
+			isSpeakerEnabled = !isSpeakerEnabled;
+			speakerToggleButton.setAllowed(isSpeakerEnabled);
+			if (recorder != null) {
+				recorder.setSpeakerEnabled(isSpeakerEnabled);
+			}
+		});
 
 		recordingControlsPanel.add(startButton);
 
@@ -407,8 +427,9 @@ public class ControlFrame extends JWindow {
 			return false;
 		}
 
-		String outputFileName = AppConstant.SAVE_LOCATION + File.separator + "orange_" + System.currentTimeMillis()
-				+ ".png";
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
+		String timestamp = LocalDateTime.now().format(formatter);
+		String outputFileName = AppConstant.SAVE_LOCATION + File.separator + "Screenshot " + timestamp + ".png";
 
 		try {
 			ImageIO.write(image, "png", new File(outputFileName));
@@ -417,8 +438,9 @@ public class ControlFrame extends JWindow {
 			restoreAfterScreenshot(wasControlFrameVisible);
 			return false;
 		}
-		System.out.println("here 1");
-		VideoUtils.showSaveDialog(outputFileName);
+		NotificationUtil.notify("Screenshot saved", outputFileName, new File(outputFileName), () -> {
+			System.out.println("clicked");
+		});
 		return true;
 	}
 
@@ -446,7 +468,7 @@ public class ControlFrame extends JWindow {
 
 		selectionFrame.setVisible(false);
 
-		recorder = new ScreenRecorder(captureArea);
+		recorder = new ScreenRecorder(captureArea, isMicrophoneEnabled, isSpeakerEnabled);
 		recorder.start();
 
 		elapsedSeconds = 0;

@@ -10,6 +10,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 
@@ -32,6 +35,8 @@ public class NotificationUtil {
 	private static final String[] VIDEO_EXTENSIONS = { "mp4", "mkv", "avi", "mov", "webm" };
 	private static final int BANNER_WIDTH = 364;
 	private static final int BANNER_HEIGHT = 180;
+
+	private static final Map<String, Runnable> actions = new ConcurrentHashMap<>();
 
 	static {
 		if (SystemTray.isSupported()) {
@@ -104,7 +109,7 @@ public class NotificationUtil {
 	private static void showToast(String title, String message, File image, NotificationClickListener onClick) {
 		if (isSnoreToastAvailable()) {
 			try {
-				runSnoreToast(title, message, image);
+				runSnoreToast(title, message, image, onClick);
 			} catch (IOException e) {
 				showTrayFallback(title, message, onClick);
 			}
@@ -123,7 +128,12 @@ public class NotificationUtil {
 		}
 	}
 
-	private static void runSnoreToast(String title, String message, File image) throws IOException {
+	private static void runSnoreToast(String title, String message, File image, NotificationClickListener onClick)
+			throws IOException {
+		String actionId = UUID.randomUUID().toString();
+
+//		actions.put(actionId, onClick);
+
 		List<String> args = new ArrayList<>();
 
 		args.add(snoreToastPath);
@@ -145,6 +155,9 @@ public class NotificationUtil {
 		args.add("-pipeName");
 		args.add("\\\\.\\pipe\\" + PIPE_NAME);
 
+		args.add("-id");
+		args.add(actionId);
+
 		new ProcessBuilder(args).start();
 	}
 
@@ -159,6 +172,7 @@ public class NotificationUtil {
 			trayClickListener = e -> onClick.onClick();
 			trayIcon.addActionListener(trayClickListener);
 		}
+
 		trayIcon.displayMessage(AppConstant.APP_NAME, buildBody(title, message), TrayIcon.MessageType.INFO);
 	}
 
