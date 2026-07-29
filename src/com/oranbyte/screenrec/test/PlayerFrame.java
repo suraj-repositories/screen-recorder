@@ -19,6 +19,7 @@ public class PlayerFrame extends JFrame {
 		setSize(900, 600);
 		setLocationRelativeTo(null);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
 //		VideoPlayerPanel player = new VideoPlayerPanel();
 //		add(player);
 //		player.play(file);

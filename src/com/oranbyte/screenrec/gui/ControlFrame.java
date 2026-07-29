@@ -327,8 +327,14 @@ public class ControlFrame extends JWindow {
 				selectionFrame.drawPanel.setRecordingActive(false);
 
 				if (ready || locked) {
-					if (takeScreenshot()) {
-//						System.exit(0);
+					String screenshot = takeScreenshot();
+					if (screenshot != null) {
+						try {
+							showScreenshot(screenshot);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+
 					}
 				}
 			}
@@ -339,6 +345,37 @@ public class ControlFrame extends JWindow {
 		root.repaint();
 		pack();
 		setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 10, 10));
+	}
+
+	public void showScreenshot(String screenshot) throws IOException {
+		BufferedImage image = ImageIO.read(new File(screenshot));
+
+		ImageViewerPanel imageViewer = new ImageViewerPanel();
+		imageViewer.setImage(image);
+
+		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+
+		int maxWidth = (int) (screen.width * 0.85);
+		int maxHeight = (int) (screen.height * 0.85);
+
+		double scaleX = (double) maxWidth / image.getWidth();
+		double scaleY = (double) maxHeight / image.getHeight();
+
+		double initialZoom = Math.min(1.0, Math.min(scaleX, scaleY));
+
+		imageViewer.setZoom(initialZoom);
+
+		int viewerWidth = (int) (image.getWidth() * initialZoom);
+		int viewerHeight = (int) (image.getHeight() * initialZoom);
+
+		viewerWidth = Math.min(viewerWidth + 20, maxWidth);
+		viewerHeight = Math.min(viewerHeight + 40, maxHeight);
+
+		mainFrame.setPanelContent(imageViewer);
+		mainFrame.setPreferredSize(new Dimension(viewerWidth, viewerHeight));
+		mainFrame.pack();
+		mainFrame.setLocationRelativeTo(null);
+		mainFrame.setVisible(true);
 	}
 
 	public RecordingState getState() {
@@ -383,18 +420,18 @@ public class ControlFrame extends JWindow {
 		return recordingModeSwitch.getRecordingMode();
 	}
 
-	public boolean takeScreenshot() {
+	public String takeScreenshot() {
 
 		if (selectionFrame == null || selectionFrame.drawPanel == null
 				|| selectionFrame.drawPanel.selectedRectangle == null) {
 			JOptionPane.showMessageDialog(this, "Please create a selection first.");
-			return false;
+			return null;
 		}
 
 		Rectangle captureArea = ensureEvenDimensions(selectionFrame.drawPanel.selectedRectangle);
 		if (captureArea.width <= 0 || captureArea.height <= 0) {
 			JOptionPane.showMessageDialog(this, "Please select a valid capture area.");
-			return false;
+			return null;
 		}
 
 		boolean wasControlFrameVisible = isVisible();
@@ -407,7 +444,7 @@ public class ControlFrame extends JWindow {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			restoreAfterScreenshot(wasControlFrameVisible);
-			return false;
+			return null;
 		}
 
 		BufferedImage image;
@@ -417,14 +454,14 @@ public class ControlFrame extends JWindow {
 		} catch (AWTException e) {
 			JOptionPane.showMessageDialog(this, "Failed to capture screenshot: " + e.getMessage());
 			restoreAfterScreenshot(wasControlFrameVisible);
-			return false;
+			return null;
 		}
 
 		File saveDir = new File(AppConstant.SAVE_LOCATION);
 		if (!saveDir.exists() && !saveDir.mkdirs()) {
 			JOptionPane.showMessageDialog(this, "Failed to create save directory.");
 			restoreAfterScreenshot(wasControlFrameVisible);
-			return false;
+			return null;
 		}
 
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
@@ -436,12 +473,12 @@ public class ControlFrame extends JWindow {
 		} catch (IOException e) {
 			JOptionPane.showMessageDialog(this, "Failed to save screenshot: " + e.getMessage());
 			restoreAfterScreenshot(wasControlFrameVisible);
-			return false;
+			return null;
 		}
 		NotificationUtil.notify("Screenshot saved", outputFileName, new File(outputFileName), () -> {
 			System.out.println("clicked");
 		});
-		return true;
+		return outputFileName;
 	}
 
 	private void restoreAfterScreenshot(boolean wasControlFrameVisible) {
@@ -468,7 +505,7 @@ public class ControlFrame extends JWindow {
 
 		selectionFrame.setVisible(false);
 
-		recorder = new ScreenRecorder(captureArea, isMicrophoneEnabled, isSpeakerEnabled);
+		recorder = new ScreenRecorder(mainFrame, captureArea, isMicrophoneEnabled, isSpeakerEnabled);
 		recorder.start();
 
 		elapsedSeconds = 0;

@@ -11,7 +11,9 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.util.function.Consumer;
 
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
@@ -35,15 +37,12 @@ import javafx.util.Duration;
 
 public class VideoPlayerPanel extends JPanel {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	private final JFXPanel fxPanel = new JFXPanel();
 	private static final int DEFAULT_ICON_SIZE = 24;
 
-	private static final Icons PALY_ICON = Icons.PLAY_WHITE;
+	private static final Icons PLAY_ICON = Icons.PLAY_WHITE;
 	private static final Icons PAUSE_ICON = Icons.PAUSE_WHITE;
 	private static final Icons SPEAKER_ICON = Icons.SPEAKER;
 
@@ -73,8 +72,15 @@ public class VideoPlayerPanel extends JPanel {
 	private Timer hideTimer;
 	private Timer animTimer;
 
+	private File file;
+	private MainFrame mainFrame;
+	private Consumer<Dimension> onVideoReady;
+
+	private static final int pad = 10;
+
 	public VideoPlayerPanel() {
 		setLayout(new BorderLayout());
+		setBorder(BorderFactory.createEmptyBorder(pad, pad, pad, pad));
 
 		layeredPane = new JLayeredPane();
 		layeredPane.setLayout(null);
@@ -98,6 +104,11 @@ public class VideoPlayerPanel extends JPanel {
 		setupAnimationTimer();
 	}
 
+	public VideoPlayerPanel(MainFrame mainFrame) {
+		this();
+		this.mainFrame = mainFrame;
+	}
+
 	private void createControls() {
 
 		controlsPanel = new JPanel(new BorderLayout(12, 0)) {
@@ -114,9 +125,11 @@ public class VideoPlayerPanel extends JPanel {
 			}
 		};
 		controlsPanel.setOpaque(false);
+		Dimension pref = controlsPanel.getPreferredSize();
+		controlsPanel.setMaximumSize(new Dimension(800, pref.height));
 		controlsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
-		playPauseButton = new ToolbarButton(PALY_ICON, DEFAULT_ICON_SIZE);
+		playPauseButton = new ToolbarButton(PLAY_ICON, DEFAULT_ICON_SIZE);
 		playPauseButton.setOpaque(false);
 		playPauseButton.setContentAreaFilled(false);
 		playPauseButton.setBorderPainted(false);
@@ -132,7 +145,7 @@ public class VideoPlayerPanel extends JPanel {
 				MediaPlayer.Status status = mediaPlayer.getStatus();
 				if (status == MediaPlayer.Status.PLAYING) {
 					mediaPlayer.pause();
-					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PALY_ICON, DEFAULT_ICON_SIZE));
+					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE));
 				} else {
 					mediaPlayer.play();
 					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PAUSE_ICON, DEFAULT_ICON_SIZE));
@@ -294,20 +307,31 @@ public class VideoPlayerPanel extends JPanel {
 		}
 	}
 
-	public void play(File file) {
+	public void play() {
+		Platform.runLater(() -> {
+			if (mediaPlayer != null) {
+				mediaPlayer.play();
+				SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PAUSE_ICON, DEFAULT_ICON_SIZE));
+			}
+		});
+	}
+
+	private void loadMedia() {
 
 		Platform.runLater(() -> {
 
 			Media media = new Media(file.toURI().toString());
+
 			mediaPlayer = new MediaPlayer(media);
+
 			MediaView mediaView = new MediaView(mediaPlayer);
 			mediaView.setPreserveRatio(true);
+
 			StackPane root = new StackPane(mediaView);
 
-			fxPanel.addComponentListener(new java.awt.event.ComponentAdapter() {
-
+			fxPanel.addComponentListener(new ComponentAdapter() {
 				@Override
-				public void componentResized(java.awt.event.ComponentEvent e) {
+				public void componentResized(ComponentEvent e) {
 
 					double width = fxPanel.getWidth();
 					double height = fxPanel.getHeight();
@@ -322,15 +346,32 @@ public class VideoPlayerPanel extends JPanel {
 			fxPanel.setScene(new Scene(root));
 
 			mediaPlayer.setOnReady(() -> {
-				mediaPlayer.play();
-				SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PAUSE_ICON, DEFAULT_ICON_SIZE));
-				updateProgress();
+
+				Dimension size = new Dimension((int) media.getWidth(), (int) media.getHeight());
+
+				SwingUtilities.invokeLater(() -> {
+					if (onVideoReady != null) {
+						onVideoReady.accept(size);
+					}
+				});
+
+				if (mediaPlayer != null) {
+					Duration total = mediaPlayer.getTotalDuration();
+
+					if (total.isUnknown())
+						return;
+
+					Duration remaining = total.subtract(new Duration(0));
+					remainingTimeLabel.setText(formatTime(remaining));
+				}
+
+				SwingUtilities.invokeLater(() -> {
+					playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
+					updateProgress();
+				});
 			});
 
-			mediaPlayer.setOnError(() -> {
-				System.out.println(mediaPlayer.getError());
-			});
-
+			mediaPlayer.setOnError(() -> System.out.println(mediaPlayer.getError()));
 		});
 	}
 
@@ -341,7 +382,6 @@ public class VideoPlayerPanel extends JPanel {
 
 			if (total.isUnknown())
 				return;
-
 			double progress = newTime.toSeconds() / total.toSeconds() * 100;
 			Duration remaining = total.subtract(newTime);
 
@@ -369,4 +409,15 @@ public class VideoPlayerPanel extends JPanel {
 	public void setControlsTargetY(int controlsTargetY) {
 		this.controlsTargetY = controlsTargetY;
 	}
+
+	public void open(String src) {
+		this.file = new File(src);
+
+		loadMedia();
+	}
+
+	public void setOnVideoReady(Consumer<Dimension> onVideoReady) {
+		this.onVideoReady = onVideoReady;
+	}
+
 }

@@ -18,6 +18,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
 
 import com.oranbyte.screenrec.constants.AppConstant;
+import com.oranbyte.screenrec.gui.MainFrame;
 import com.oranbyte.screenrec.util.CursorUtils;
 import com.oranbyte.screenrec.util.NotificationUtil;
 import com.xuggle.mediatool.IMediaWriter;
@@ -33,6 +34,7 @@ public class ScreenRecorder {
 
 	private final Rectangle captureArea;
 	private final String outputFileName;
+	private MainFrame mainFrame;
 
 	private volatile boolean isRecording;
 	private volatile boolean isPaused;
@@ -84,6 +86,12 @@ public class ScreenRecorder {
 
 		this.isMicrophoneEnabled = isMicrophoneEnabled;
 		this.isSpeakerEnabled = isSpeakerEnabled;
+	}
+
+	public ScreenRecorder(MainFrame mainFrame, Rectangle captureArea, boolean isMicrophoneEnabled,
+			boolean isSpeakerEnabled) {
+		this(captureArea, isMicrophoneEnabled, isSpeakerEnabled);
+		this.mainFrame = mainFrame;
 	}
 
 	public void setMicrophoneEnabled(boolean enabled) {
@@ -250,10 +258,6 @@ public class ScreenRecorder {
 		}
 	}
 
-	// ---------------------------------------------------------------------
-	// Audio capture (mic + optional system audio, mixed if both present)
-	// ---------------------------------------------------------------------
-
 	private void recordAudio() {
 		byte[] rawMic = new byte[AUDIO_BUFFER_BYTES];
 		byte[] rawSystem = new byte[AUDIO_BUFFER_BYTES];
@@ -353,10 +357,6 @@ public class ScreenRecorder {
 		return out;
 	}
 
-	// ---------------------------------------------------------------------
-	// Shared pause-aware clock, used by both the video and audio loops
-	// ---------------------------------------------------------------------
-
 	private void awaitResumeIfPaused() throws InterruptedException {
 		if (isPaused) {
 			synchronized (pauseLock) {
@@ -398,5 +398,8 @@ public class ScreenRecorder {
 		NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName), () -> {
 			System.out.println("clicked");
 		});
+
+		mainFrame.setVideoPanel(outputFileName);
 	}
+
 }

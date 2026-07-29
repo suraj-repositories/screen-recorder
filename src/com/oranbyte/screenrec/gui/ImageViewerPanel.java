@@ -32,6 +32,8 @@ public class ImageViewerPanel extends JPanel {
 	private static final double MAX_ZOOM = 10.0;
 	private static final double ZOOM_FACTOR = 1.1;
 
+	private static final int pad = 10;
+
 	public ImageViewerPanel() {
 
 		super(new BorderLayout());
@@ -41,6 +43,7 @@ public class ImageViewerPanel extends JPanel {
 		scrollPane = new ModernScrollPane(imagePanel);
 
 		scrollPane.setBorder(null);
+
 		scrollPane.getViewport().setBackground(getBackground());
 
 		add(scrollPane, BorderLayout.CENTER);

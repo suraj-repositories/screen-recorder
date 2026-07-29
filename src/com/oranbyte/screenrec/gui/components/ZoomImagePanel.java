@@ -101,4 +101,8 @@ public class ZoomImagePanel extends JPanel {
 
 		g2.dispose();
 	}
+
+	public Dimension getImagePreferredSize() {
+		return new Dimension((int) Math.round(image.getWidth() * zoom), (int) Math.round(image.getHeight() * zoom));
+	}
 }
