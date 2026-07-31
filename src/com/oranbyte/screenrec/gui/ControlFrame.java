@@ -334,7 +334,6 @@ public class ControlFrame extends JWindow {
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
-
 					}
 				}
 			}
@@ -505,7 +504,8 @@ public class ControlFrame extends JWindow {
 
 		selectionFrame.setVisible(false);
 
-		recorder = new ScreenRecorder(mainFrame, captureArea, isMicrophoneEnabled, isSpeakerEnabled);
+		recorder = new ScreenRecorder(mainFrame, captureArea, false, true);
+
 		recorder.start();
 
 		elapsedSeconds = 0;

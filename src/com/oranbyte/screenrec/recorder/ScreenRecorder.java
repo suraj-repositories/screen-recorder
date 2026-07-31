@@ -74,7 +74,8 @@ public class ScreenRecorder {
 			saveDir.mkdirs();
 		}
 
-		this.systemAudioSource = new JavaSoundAudioSource();
+		this.systemAudioSource = new WasapiAudioSource(WasapiAudioSource.Mode.CAPTURE);
+
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
 		String timestamp = LocalDateTime.now().format(formatter);
 
