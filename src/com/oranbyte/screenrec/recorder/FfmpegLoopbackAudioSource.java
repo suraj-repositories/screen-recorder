@@ -100,13 +100,7 @@ public class FfmpegLoopbackAudioSource implements SystemAudioSource {
 								// index
 					"-ar", String.valueOf(sampleRate), "-ac", String.valueOf(channels), "-f", "s16le", "pipe:1" };
 		case LINUX:
-			return new String[] { "ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "pulse", "-i", deviceName, // e.g.
-																													// "<sink-name>.monitor"
-																													// from
-																													// `pactl
-																													// list
-																													// sources
-																													// short`
+			return new String[] { "ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "pulse", "-i", deviceName,
 					"-ar", String.valueOf(sampleRate), "-ac", String.valueOf(channels), "-f", "s16le", "pipe:1" };
 		default:
 			throw new IllegalStateException("Unsupported platform: " + platform);
