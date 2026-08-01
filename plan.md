@@ -15,5 +15,6 @@
 3. count-down before starting video recorder
 4. add copy and save buttons after capture area
 5. add images on capture-mode selection
-
+6. add color picker
+7. add selection size on time
 
