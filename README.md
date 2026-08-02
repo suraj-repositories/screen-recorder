@@ -7,10 +7,9 @@ A screen recorder application developed in java swing!
 - Java 22
 - Java Swing 
 - xuggle.xuggler
-- slf4j
-- logback core, logback classic
 - javafx
 - jna, jan-platform
+- wasapi
 
 ### Screenshot
 
