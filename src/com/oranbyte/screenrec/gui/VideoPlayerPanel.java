@@ -53,6 +53,8 @@ public class VideoPlayerPanel extends JPanel {
 	private static final int ANIM_TICK_MS = 15;
 	private static final int ANIM_STEP = 18;
 
+	private static final int CONTROLS_MAX_WIDTH = 600;
+
 	private MediaPlayer mediaPlayer;
 
 	private ToolbarButton playPauseButton;
@@ -68,7 +70,8 @@ public class VideoPlayerPanel extends JPanel {
 
 	private int controlsCurrentY;
 	private int controlsTargetY;
-	private boolean controlsVisible = false;
+	private boolean controlsVisible = true;
+	private int lastPanelHeight = -1;
 	private Timer hideTimer;
 	private Timer animTimer;
 
@@ -94,7 +97,7 @@ public class VideoPlayerPanel extends JPanel {
 		layeredPane.addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent e) {
-				layoutFloatingChildren();
+				layoutControlsPanel();
 			}
 		});
 
@@ -124,9 +127,8 @@ public class VideoPlayerPanel extends JPanel {
 				super.paintComponent(g);
 			}
 		};
+
 		controlsPanel.setOpaque(false);
-		Dimension pref = controlsPanel.getPreferredSize();
-		controlsPanel.setMaximumSize(new Dimension(800, pref.height));
 		controlsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
 		playPauseButton = new ToolbarButton(PLAY_ICON, DEFAULT_ICON_SIZE);
@@ -206,20 +208,39 @@ public class VideoPlayerPanel extends JPanel {
 		controlsPanel.add(timelinePanel, BorderLayout.CENTER);
 		controlsPanel.add(volumeButton, BorderLayout.EAST);
 
-		controlsPanel.setPreferredSize(new Dimension(400, CONTROL_HEIGHT));
 	}
 
-	private void layoutFloatingChildren() {
+	private void layoutControlsPanel() {
 
 		int w = layeredPane.getWidth();
 		int h = layeredPane.getHeight();
+		if (w <= 0 || h <= 0)
+			return;
 
 		fxPanel.setBounds(0, 0, w, h);
 
-		int controlsWidth = Math.max(0, w - 2 * SIDE_MARGIN);
-		controlsPanel.setBounds(SIDE_MARGIN, controlsCurrentY, controlsWidth, CONTROL_HEIGHT);
+		if (h != lastPanelHeight) {
+			controlsCurrentY = controlsVisible ? getVisibleY(h) : getHiddenY(h);
+			lastPanelHeight = h;
+		}
+
+		int controlsWidth = getControlsWidth(w);
+		int controlsX = getControlsX(w, controlsWidth);
+
+		controlsPanel.setBounds(controlsX, controlsCurrentY, controlsWidth, CONTROL_HEIGHT);
+		controlsPanel.revalidate();
+		controlsPanel.repaint();
 
 		setControlsTargetY(controlsVisible ? getVisibleY(h) : getHiddenY(h));
+	}
+
+	private int getControlsWidth(int parentWidth) {
+		int available = Math.max(0, parentWidth - 2 * SIDE_MARGIN);
+		return Math.min(CONTROLS_MAX_WIDTH, available);
+	}
+
+	private int getControlsX(int parentWidth, int controlsWidth) {
+		return (parentWidth - controlsWidth) / 2;
 	}
 
 	private int getVisibleY(int panelHeight) {
@@ -249,8 +270,10 @@ public class VideoPlayerPanel extends JPanel {
 			int step = Math.min(Math.abs(diff), ANIM_STEP);
 			controlsCurrentY += (diff > 0) ? step : -step;
 
-			int controlsWidth = Math.max(0, w - 2 * SIDE_MARGIN);
-			controlsPanel.setBounds(SIDE_MARGIN, controlsCurrentY, controlsWidth, CONTROL_HEIGHT);
+			int controlsWidth = getControlsWidth(w);
+			int controlsX = getControlsX(w, controlsWidth);
+
+			controlsPanel.setBounds(controlsX, controlsCurrentY, controlsWidth, CONTROL_HEIGHT);
 			controlsPanel.revalidate();
 			controlsPanel.repaint();
 		});
@@ -412,7 +435,6 @@ public class VideoPlayerPanel extends JPanel {
 
 	public void open(String src) {
 		this.file = new File(src);
-
 		loadMedia();
 	}
 

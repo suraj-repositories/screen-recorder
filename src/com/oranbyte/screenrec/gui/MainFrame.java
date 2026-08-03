@@ -179,13 +179,13 @@ public class MainFrame extends JFrame {
 		VideoPlayerPanel player = new VideoPlayerPanel(this);
 		player.open(src);
 		player.setOnVideoReady(size -> {
-			resizeWindow(size.width, size.height);
+			resizeWindow(player, size.width, size.height);
 		});
 
 		setPanelContent(player);
 	}
 
-	private void resizeWindow(int videoWidth, int videoHeight) {
+	private void resizeWindow(VideoPlayerPanel player, int videoWidth, int videoHeight) {
 		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
 
 		int maxWidth = (int) (screen.width * 0.85);
