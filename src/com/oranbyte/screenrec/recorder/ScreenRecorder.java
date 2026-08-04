@@ -191,10 +191,6 @@ public class ScreenRecorder {
 		return TARGET_FPS;
 	}
 
-	// ---------------------------------------------------------------------
-	// Video capture
-	// ---------------------------------------------------------------------
-
 	private void recordScreen() {
 		try {
 			Robot robot = new Robot();

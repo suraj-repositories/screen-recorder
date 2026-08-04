@@ -6,6 +6,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
+import java.io.File;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -40,6 +41,8 @@ public class MainFrame extends JFrame {
 	private JPanel emptyPanel;
 	private JPanel contentPanel;
 
+	private JToolBar appToolbar;
+
 	public MainFrame() {
 		init();
 	}
@@ -56,7 +59,8 @@ public class MainFrame extends JFrame {
 		setSize(600, 300);
 		setLocationRelativeTo(null);
 
-		add(initToolbar(), BorderLayout.NORTH);
+		appToolbar = initToolbar();
+		add(appToolbar, BorderLayout.NORTH);
 
 		panel = new JPanel(cardLayout);
 
@@ -181,6 +185,7 @@ public class MainFrame extends JFrame {
 		player.setOnVideoReady(size -> {
 			resizeWindow(player, size.width, size.height);
 		});
+		setVideoActionButtons(new File(src));
 
 		setPanelContent(player);
 	}
@@ -200,5 +205,60 @@ public class MainFrame extends JFrame {
 		pack();
 		setLocationRelativeTo(null);
 		setVisible(true);
+	}
+
+	public void setImageActionButtons(File file) {
+		ToolbarButton saveBtn = new ToolbarButton(Icons.PAUSE);
+		saveBtn.setBorder(null);
+		saveBtn.addActionListener(e -> {
+			System.out.println("Save btn clicked");
+		});
+
+		ToolbarButton copyBtn = new ToolbarButton(Icons.PAUSE);
+		copyBtn.setBorder(null);
+		copyBtn.addActionListener(e -> {
+			System.out.println("Copy btn clicked");
+		});
+
+		ToolbarButton shareBtn = new ToolbarButton(Icons.PAUSE);
+		shareBtn.setBorder(null);
+		shareBtn.addActionListener(e -> {
+			System.out.println("Share btn clicked");
+		});
+
+		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(saveBtn);
+		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(copyBtn);
+		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(shareBtn);
+
+	}
+
+	public void setVideoActionButtons(File file) {
+		ToolbarButton saveBtn = new ToolbarButton(Icons.SAVE);
+		saveBtn.setSm();
+		saveBtn.addActionListener(e -> {
+			System.out.println("Save btn clicked");
+		});
+
+		ToolbarButton copyBtn = new ToolbarButton(Icons.COPY);
+		copyBtn.setSm();
+		copyBtn.addActionListener(e -> {
+			System.out.println("Copy btn clicked");
+		});
+
+		ToolbarButton shareBtn = new ToolbarButton(Icons.SHARE);
+		shareBtn.setSm();
+		shareBtn.addActionListener(e -> {
+			System.out.println("Share btn clicked");
+		});
+
+		appToolbar.add(Box.createHorizontalStrut(Integer.MAX_VALUE));
+		appToolbar.add(saveBtn);
+		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(copyBtn);
+		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(shareBtn);
 	}
 }

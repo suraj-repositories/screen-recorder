@@ -26,6 +26,7 @@ public final class AppColors {
 	/* ---------- Borders ---------- */
 
 	public static final Color BORDER = new Color(0xD8D8D8);
+	public static final Color RECORDING_BORDER_COLOR = new Color(0xff907d);
 	public static final Color BORDER_HOVER = PRIMARY;
 
 	/* ---------- Buttons ---------- */

@@ -10,8 +10,10 @@
 	Capture via CoreAudio (often with BlackHole or ScreenCaptureKit)
 	Linux
 	Capture via PulseAudio/PipeWire
+	
+	-- NOTE - max volume before start recording...
 
-2. fix video player
+2. fix video player -- done
 3. count-down before starting video recorder
 4. add copy and save buttons after capture area
 5. add images on capture-mode selection

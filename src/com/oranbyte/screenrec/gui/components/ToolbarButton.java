@@ -201,4 +201,11 @@ public class ToolbarButton extends JButton {
 		}
 	}
 
+	public ToolbarButton setSm() {
+
+		this.setPadding(4, 7, 4, 7);
+		return this;
+
+	}
+
 }

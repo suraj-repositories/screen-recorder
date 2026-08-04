@@ -36,7 +36,9 @@ import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.constants.RecordingState;
+import com.oranbyte.screenrec.gui.components.CountdownOverlay;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
+import com.oranbyte.screenrec.gui.components.RecordingBorderOverlay;
 import com.oranbyte.screenrec.gui.components.RoundedBorder;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
@@ -76,6 +78,7 @@ public class ControlFrame extends JWindow {
 	private boolean isSpeakerEnabled = true;
 
 	private Rectangle preRecordingLocation;
+	private RecordingBorderOverlay recordingBorderOverlay;
 
 	public ControlFrame(SelectionFrame owner, MainFrame mainFrame, SelectionFrame selectionFrame) {
 
@@ -210,6 +213,7 @@ public class ControlFrame extends JWindow {
 		startButton = new ToolbarButton("Start", Icons.START);
 		startButton.addActionListener(e -> {
 			setState(RecordingState.RECORDING);
+			root.setVisible(false);
 			startRecording();
 		});
 
@@ -489,6 +493,7 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void startRecording() {
+
 		if (selectionFrame == null || selectionFrame.drawPanel == null
 				|| selectionFrame.drawPanel.selectedRectangle == null) {
 			JOptionPane.showMessageDialog(this, "Please create a selection first.");
@@ -496,24 +501,33 @@ public class ControlFrame extends JWindow {
 		}
 
 		Rectangle captureArea = ensureEvenDimensions(selectionFrame.drawPanel.selectedRectangle);
-		if (captureArea.width <= 0 || captureArea.height <= 0) {
 
+		if (captureArea.width <= 0 || captureArea.height <= 0) {
 			JOptionPane.showMessageDialog(this, "Please select a valid recording area.");
 			return;
 		}
 
 		selectionFrame.setVisible(false);
 
-		recorder = new ScreenRecorder(mainFrame, captureArea, false, true);
+		CountdownOverlay overlay = new CountdownOverlay(captureArea);
 
-		recorder.start();
+		overlay.startCountdown(() -> {
 
-		elapsedSeconds = 0;
-		updateElapsedLabel();
-		recordingTimer.start();
+			recordingBorderOverlay = new RecordingBorderOverlay(captureArea);
+			recordingBorderOverlay.setVisible(true);
 
-		toFront();
-		requestFocus();
+			root.setVisible(true);
+
+			recorder = new ScreenRecorder(mainFrame, captureArea, false, true);
+			recorder.start();
+
+			elapsedSeconds = 0;
+			updateElapsedLabel();
+			recordingTimer.start();
+
+			toFront();
+			requestFocus();
+		});
 	}
 
 	public void pauseRecording() {
@@ -540,6 +554,10 @@ public class ControlFrame extends JWindow {
 		if (recorder != null) {
 			recorder.stop();
 			recorder = null;
+		}
+
+		if (recordingBorderOverlay != null) {
+			recordingBorderOverlay.setVisible(false);
 		}
 
 		restoreLocationIfMoved();
