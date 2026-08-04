@@ -6,11 +6,19 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Collections;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -20,12 +28,15 @@ import javax.swing.Timer;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
+import com.oranbyte.screenrec.constants.AppUI;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
+import com.oranbyte.screenrec.gui.components.ShareDialog;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
+import com.oranbyte.screenrec.util.NotificationUtil;
 
 public class MainFrame extends JFrame {
 
@@ -43,7 +54,13 @@ public class MainFrame extends JFrame {
 
 	private JToolBar appToolbar;
 
+	private File currentFile;
+	private ToolbarButton saveBtn;
+	private ToolbarButton copyBtn;
+	private ToolbarButton shareBtn;
+
 	public MainFrame() {
+		new AppUI();
 		init();
 	}
 
@@ -51,7 +68,6 @@ public class MainFrame extends JFrame {
 
 		setTitle("Screen Recorder");
 		setIconImage(Icons.FAVICON.icon().getImage());
-		setAlwaysOnTop(true);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BorderLayout());
 
@@ -60,6 +76,7 @@ public class MainFrame extends JFrame {
 		setLocationRelativeTo(null);
 
 		appToolbar = initToolbar();
+		initActionButtons();
 		add(appToolbar, BorderLayout.NORTH);
 
 		panel = new JPanel(cardLayout);
@@ -97,7 +114,11 @@ public class MainFrame extends JFrame {
 		captureMode.setMaximumSize(new Dimension(250, captureMode.getPreferredSize().height));
 
 		ImageSwitch modeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
-		modeSwitch.setMaximumSize(new Dimension(100, modeSwitch.getPreferredSize().height));
+
+		Dimension modeSwitchPref = modeSwitch.getPreferredSize();
+		modeSwitch.setMinimumSize(modeSwitchPref);
+		modeSwitch.setPreferredSize(modeSwitchPref);
+		modeSwitch.setMaximumSize(new Dimension(100, modeSwitchPref.height));
 
 		newButton.addActionListener(e -> {
 
@@ -185,7 +206,7 @@ public class MainFrame extends JFrame {
 		player.setOnVideoReady(size -> {
 			resizeWindow(player, size.width, size.height);
 		});
-		setVideoActionButtons(new File(src));
+		setActionButtons(new File(src));
 
 		setPanelContent(player);
 	}
@@ -207,58 +228,104 @@ public class MainFrame extends JFrame {
 		setVisible(true);
 	}
 
-	public void setImageActionButtons(File file) {
-		ToolbarButton saveBtn = new ToolbarButton(Icons.PAUSE);
-		saveBtn.setBorder(null);
+	public void initActionButtons() {
+		saveBtn = new ToolbarButton(Icons.SAVE, 24);
+		saveBtn.setVisible(false);
 		saveBtn.addActionListener(e -> {
-			System.out.println("Save btn clicked");
+			if (currentFile == null)
+				return;
+
+			JFileChooser fileChooser = new JFileChooser(currentFile.getParentFile());
+			fileChooser.setSelectedFile(currentFile);
+
+			int result = fileChooser.showSaveDialog(appToolbar);
+			if (result == JFileChooser.APPROVE_OPTION) {
+				File destFile = fileChooser.getSelectedFile();
+				try {
+					Files.copy(currentFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+					NotificationUtil.success("Save Complete",
+							"File saved successfully to:\n" + destFile.getAbsolutePath());
+
+				} catch (IOException ex) {
+					NotificationUtil.error("Save Error", "Failed to save file: " + ex.getMessage());
+				}
+			}
 		});
 
-		ToolbarButton copyBtn = new ToolbarButton(Icons.PAUSE);
-		copyBtn.setBorder(null);
+		copyBtn = new ToolbarButton(Icons.COPY, 24);
+		copyBtn.setVisible(false);
 		copyBtn.addActionListener(e -> {
-			System.out.println("Copy btn clicked");
+			if (currentFile == null)
+				return;
+
+			try {
+				Transferable transferable = new Transferable() {
+					@Override
+					public DataFlavor[] getTransferDataFlavors() {
+						return new DataFlavor[] { DataFlavor.javaFileListFlavor };
+					}
+
+					@Override
+					public boolean isDataFlavorSupported(DataFlavor flavor) {
+						return DataFlavor.javaFileListFlavor.equals(flavor);
+					}
+
+					@Override
+					public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException {
+						if (!isDataFlavorSupported(flavor)) {
+							throw new UnsupportedFlavorException(flavor);
+						}
+						return Collections.singletonList(currentFile);
+					}
+				};
+
+				Toolkit.getDefaultToolkit().getSystemClipboard().setContents(transferable, null);
+
+				copyBtn.setIcon(Icons.CHECK_GREEN.icon(24));
+				Timer timer = new Timer(1500, ev -> {
+					copyBtn.setIcon(Icons.COPY.icon(24));
+				});
+
+				timer.setRepeats(false);
+				timer.start();
+			} catch (Exception ex) {
+				NotificationUtil.error("Copy Error", "Failed to copy file: " + ex.getMessage());
+			}
 		});
 
-		ToolbarButton shareBtn = new ToolbarButton(Icons.PAUSE);
-		shareBtn.setBorder(null);
+		shareBtn = new ToolbarButton(Icons.SHARE, 24);
+		shareBtn.setVisible(false);
 		shareBtn.addActionListener(e -> {
-			System.out.println("Share btn clicked");
+			if (currentFile == null)
+				return;
+
+			ShareDialog shareDialog = new ShareDialog(this, currentFile);
+			shareDialog.setVisible(true);
+
 		});
 
-		appToolbar.add(Box.createHorizontalStrut(10));
+		appToolbar.add(Box.createHorizontalGlue());
 		appToolbar.add(saveBtn);
 		appToolbar.add(Box.createHorizontalStrut(10));
 		appToolbar.add(copyBtn);
 		appToolbar.add(Box.createHorizontalStrut(10));
 		appToolbar.add(shareBtn);
-
 	}
 
-	public void setVideoActionButtons(File file) {
-		ToolbarButton saveBtn = new ToolbarButton(Icons.SAVE);
-		saveBtn.setSm();
-		saveBtn.addActionListener(e -> {
-			System.out.println("Save btn clicked");
-		});
+	public void setActionButtons(File file) {
+		this.currentFile = file;
 
-		ToolbarButton copyBtn = new ToolbarButton(Icons.COPY);
-		copyBtn.setSm();
-		copyBtn.addActionListener(e -> {
-			System.out.println("Copy btn clicked");
-		});
+		boolean isVisible = (file != null && file.exists());
 
-		ToolbarButton shareBtn = new ToolbarButton(Icons.SHARE);
-		shareBtn.setSm();
-		shareBtn.addActionListener(e -> {
-			System.out.println("Share btn clicked");
-		});
+		if (saveBtn != null)
+			saveBtn.setVisible(isVisible);
+		if (copyBtn != null)
+			copyBtn.setVisible(isVisible);
+		if (shareBtn != null)
+			shareBtn.setVisible(isVisible);
 
-		appToolbar.add(Box.createHorizontalStrut(Integer.MAX_VALUE));
-		appToolbar.add(saveBtn);
-		appToolbar.add(Box.createHorizontalStrut(10));
-		appToolbar.add(copyBtn);
-		appToolbar.add(Box.createHorizontalStrut(10));
-		appToolbar.add(shareBtn);
+		appToolbar.revalidate();
+		appToolbar.repaint();
 	}
 }

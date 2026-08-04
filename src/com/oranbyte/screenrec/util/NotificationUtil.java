@@ -132,8 +132,6 @@ public class NotificationUtil {
 			throws IOException {
 		String actionId = UUID.randomUUID().toString();
 
-//		actions.put(actionId, onClick);
-
 		List<String> args = new ArrayList<>();
 
 		args.add(snoreToastPath);
@@ -255,5 +253,56 @@ public class NotificationUtil {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	private static void showTrayFallback(String title, String message, NotificationType type,
+			NotificationClickListener onClick) {
+
+		if (trayIcon == null) {
+			return;
+		}
+
+		if (trayClickListener != null) {
+			trayIcon.removeActionListener(trayClickListener);
+		}
+
+		if (onClick != null) {
+			trayClickListener = e -> onClick.onClick();
+			trayIcon.addActionListener(trayClickListener);
+		}
+
+		trayIcon.displayMessage(title, message, type.getTrayType());
+	}
+
+	public static void success(String title, String message) {
+		showTrayFallback(title, message, NotificationType.SUCCESS, null);
+	}
+
+	public static void success(String title, String message, NotificationClickListener onClick) {
+		showTrayFallback(title, message, NotificationType.SUCCESS, onClick);
+	}
+
+	public static void info(String title, String message) {
+		showTrayFallback(title, message, NotificationType.INFO, null);
+	}
+
+	public static void info(String title, String message, NotificationClickListener onClick) {
+		showTrayFallback(title, message, NotificationType.INFO, onClick);
+	}
+
+	public static void warning(String title, String message) {
+		showTrayFallback(title, message, NotificationType.WARNING, null);
+	}
+
+	public static void warning(String title, String message, NotificationClickListener onClick) {
+		showTrayFallback(title, message, NotificationType.WARNING, onClick);
+	}
+
+	public static void error(String title, String message) {
+		showTrayFallback(title, message, NotificationType.ERROR, null);
+	}
+
+	public static void error(String title, String message, NotificationClickListener onClick) {
+		showTrayFallback(title, message, NotificationType.ERROR, onClick);
 	}
 }

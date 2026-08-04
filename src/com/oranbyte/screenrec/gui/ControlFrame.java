@@ -164,6 +164,9 @@ public class ControlFrame extends JWindow {
 		closeButton.addActionListener(e -> {
 			selectionFrame.closeSelection();
 			setVisible(false);
+			if (recordingBorderOverlay != null) {
+				recordingBorderOverlay.setVisible(false);
+			}
 
 			mainFrame.setVisible(true);
 			mainFrame.toFront();
@@ -213,7 +216,8 @@ public class ControlFrame extends JWindow {
 		startButton = new ToolbarButton("Start", Icons.START);
 		startButton.addActionListener(e -> {
 			setState(RecordingState.RECORDING);
-			root.setVisible(false);
+
+			setButtonsEnabled(false);
 			startRecording();
 		});
 
@@ -222,6 +226,7 @@ public class ControlFrame extends JWindow {
 			setState(RecordingState.PAUSED);
 			pauseRecording();
 		});
+
 		pauseButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 		pauseButton.setBorder(null);
 
@@ -271,18 +276,14 @@ public class ControlFrame extends JWindow {
 		});
 
 		recordingControlsPanel.add(startButton);
-
 		recordingControlsPanel.add(pauseButton);
 
 		recordingControlsPanel.add(playButton);
 		recordingControlsPanel.add(Box.createHorizontalStrut(12));
-
 		recordingControlsPanel.add(terminateButton);
 		recordingControlsPanel.add(Box.createHorizontalStrut(16));
-
 		recordingControlsPanel.add(recordingTimeLabel);
 		recordingControlsPanel.add(Box.createHorizontalStrut(16));
-
 		recordingControlsPanel.add(micToggleButton);
 		recordingControlsPanel.add(Box.createHorizontalStrut(12));
 
@@ -334,7 +335,9 @@ public class ControlFrame extends JWindow {
 					String screenshot = takeScreenshot();
 					if (screenshot != null) {
 						try {
+
 							showScreenshot(screenshot);
+
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -351,7 +354,8 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void showScreenshot(String screenshot) throws IOException {
-		BufferedImage image = ImageIO.read(new File(screenshot));
+		File file = new File(screenshot);
+		BufferedImage image = ImageIO.read(file);
 
 		ImageViewerPanel imageViewer = new ImageViewerPanel();
 		imageViewer.setImage(image);
@@ -374,6 +378,7 @@ public class ControlFrame extends JWindow {
 		viewerWidth = Math.min(viewerWidth + 20, maxWidth);
 		viewerHeight = Math.min(viewerHeight + 40, maxHeight);
 
+		mainFrame.setActionButtons(file);
 		mainFrame.setPanelContent(imageViewer);
 		mainFrame.setPreferredSize(new Dimension(viewerWidth, viewerHeight));
 		mainFrame.pack();
@@ -516,7 +521,7 @@ public class ControlFrame extends JWindow {
 			recordingBorderOverlay = new RecordingBorderOverlay(captureArea);
 			recordingBorderOverlay.setVisible(true);
 
-			root.setVisible(true);
+			setButtonsEnabled(true);
 
 			recorder = new ScreenRecorder(mainFrame, captureArea, false, true);
 			recorder.start();
@@ -528,6 +533,24 @@ public class ControlFrame extends JWindow {
 			toFront();
 			requestFocus();
 		});
+	}
+
+	public void setButtonsEnabled(boolean enabled) {
+		if (pauseButton != null) {
+			pauseButton.setEnabled(enabled);
+		}
+		if (playButton != null) {
+			playButton.setEnabled(enabled);
+		}
+		if (terminateButton != null) {
+			terminateButton.setEnabled(enabled);
+		}
+		if (speakerToggleButton != null) {
+			speakerToggleButton.setEnabled(enabled);
+		}
+		if (micToggleButton != null) {
+			micToggleButton.setEnabled(enabled);
+		}
 	}
 
 	public void pauseRecording() {
