@@ -19,4 +19,5 @@
 5. add images on capture-mode selection
 6. add color picker
 7. add selection size on time
+8. fix the video recording : large time issue
 
