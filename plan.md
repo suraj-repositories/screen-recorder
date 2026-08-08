@@ -16,8 +16,8 @@
 2. fix video player -- done
 3. count-down before starting video recorder -- done
 4. add copy and save buttons after capture area -- done
-5. add images on capture-mode selection
+5. add images on capture-mode selection -- done
 6. add color picker
-7. add selection size on time
-8. fix the video recording : large time issue
+7. add selection size on time -- 
+8. fix the video recording : large time issue -- done
 

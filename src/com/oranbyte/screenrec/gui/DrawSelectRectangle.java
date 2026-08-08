@@ -429,6 +429,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
+		 
 		if (recordingActive) {
 			return;
 		}
@@ -446,6 +447,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			int height = Math.abs(py - startPoint.y);
 
 			selectedRectangle.setBounds(x, y, width, height);
+			
+ 
 		} else if (activeHandle != NONE && anchorPoint != null) {
 			resizeSelection(p);
 		} else if (isMoving && dragOffset != null && selectedRectangle != null) {
@@ -454,6 +457,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			newX = Math.max(0, Math.min(newX, getWidth() - selectedRectangle.width));
 			newY = Math.max(0, Math.min(newY, getHeight() - selectedRectangle.height));
 			selectedRectangle.setLocation(newX, newY);
+			
 		}
 		repaint();
 	}
