@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,10 +58,13 @@ public class ScreenRecorder {
 	private TargetDataLine micLine;
 	private SystemAudioSource systemAudioSource;
 
+	private AudioFormat systemAudioNativeFormat;
+
 	private Thread videoThread;
 	private Thread audioThread;
 
 	private final AtomicInteger framesEncoded = new AtomicInteger(0);
+	private final CountDownLatch captureStarted = new CountDownLatch(1);
 
 	public ScreenRecorder(Rectangle captureArea) {
 
@@ -108,9 +112,8 @@ public class ScreenRecorder {
 	}
 
 	public void start() {
-		if (isRecording) {
+		if (isRecording)
 			return;
-		}
 		isRecording = true;
 		isPaused = false;
 		framesEncoded.set(0);
@@ -121,13 +124,10 @@ public class ScreenRecorder {
 			writer.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, captureArea.width, captureArea.height);
 
 			boolean wantsAudio = isMicrophoneEnabled || (isSpeakerEnabled && systemAudioSource != null);
-
 			if (wantsAudio) {
 				writer.addAudioStream(AUDIO_STREAM_INDEX, AUDIO_STREAM_INDEX, ICodec.ID.CODEC_ID_AAC, AUDIO_CHANNELS,
 						AUDIO_SAMPLE_RATE);
 				audioStreamAdded = true;
-
-				System.out.println("Recording audio...");
 			}
 		} catch (Exception e) {
 			System.err.println("Failed to initialize writer: " + e.getMessage());
@@ -135,8 +135,6 @@ public class ScreenRecorder {
 			isRecording = false;
 			return;
 		}
-
-		startTime = System.nanoTime();
 
 		videoThread = new Thread(this::recordScreen, "Screen Recorder - Video");
 		videoThread.start();
@@ -147,6 +145,12 @@ public class ScreenRecorder {
 		}
 
 		new Thread(this::finalizeWhenDone, "Screen Recorder - Finalizer").start();
+
+		try {
+			captureStarted.await(3, TimeUnit.SECONDS);
+		} catch (InterruptedException ignored) {
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	public void stop() {
@@ -195,6 +199,9 @@ public class ScreenRecorder {
 		try {
 			Robot robot = new Robot();
 
+			startTime = System.nanoTime();
+			captureStarted.countDown();
+
 			while (isRecording) {
 				awaitResumeIfPaused();
 				if (!isRecording) {
@@ -230,6 +237,7 @@ public class ScreenRecorder {
 				}
 			}
 		} catch (Exception e) {
+			captureStarted.countDown();
 			System.err.println("Error during recording: " + e.getMessage());
 			e.printStackTrace();
 		}
@@ -259,25 +267,29 @@ public class ScreenRecorder {
 		byte[] rawMic = new byte[AUDIO_BUFFER_BYTES];
 		byte[] rawSystem = new byte[AUDIO_BUFFER_BYTES];
 
+		// Maintain running sample counter to compute accurate linear timestamps
+		long totalAudioSamplesWritten = 0;
+
 		try {
 			if (isMicrophoneEnabled) {
 				micLine = openMic();
 			}
+
 			if (isSpeakerEnabled && systemAudioSource != null) {
 				systemAudioSource.start(AUDIO_SAMPLE_RATE, AUDIO_CHANNELS);
+				systemAudioNativeFormat = resolveSystemAudioFormat();
 			}
 
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording) {
+				if (!isRecording)
 					break;
-				}
 
 				short[] micSamples = null;
 				short[] systemSamples = null;
 
-				if (micLine != null) {
-					int read = micLine.read(rawMic, 0, rawMic.length);
+				if (micLine != null && micLine.available() > 0) {
+					int read = micLine.read(rawMic, 0, Math.min(micLine.available(), rawMic.length));
 					if (read > 0) {
 						micSamples = bytesToShorts(rawMic, read);
 					}
@@ -286,7 +298,7 @@ public class ScreenRecorder {
 				if (isSpeakerEnabled && systemAudioSource != null) {
 					int read = systemAudioSource.read(rawSystem, 0, rawSystem.length);
 					if (read > 0) {
-						systemSamples = bytesToShorts(rawSystem, read);
+						systemSamples = normalizeToTargetFormat(rawSystem, read, systemAudioNativeFormat);
 					}
 				}
 
@@ -300,10 +312,18 @@ public class ScreenRecorder {
 				}
 
 				if (outSamples != null && outSamples.length > 0) {
-					long ts = currentTimestampNanos();
+					// Compute sample-accurate time in nanoseconds
+					long sampleTimestampNanos = (totalAudioSamplesWritten * 1_000_000_000L) / AUDIO_SAMPLE_RATE;
+
 					synchronized (writerLock) {
-						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, ts, TimeUnit.NANOSECONDS);
+						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, sampleTimestampNanos, TimeUnit.NANOSECONDS);
 					}
+
+					// Track total frames processed (for mono: 1 sample = 1 frame)
+					totalAudioSamplesWritten += outSamples.length;
+				} else {
+					// Prevent high-CPU spinning when no audio data is ready
+					Thread.sleep(5);
 				}
 			}
 		} catch (Exception e) {
@@ -318,6 +338,104 @@ public class ScreenRecorder {
 				systemAudioSource.stop();
 			}
 		}
+	}
+
+	private AudioFormat resolveSystemAudioFormat() {
+		try {
+			java.lang.reflect.Method m = systemAudioSource.getClass().getMethod("getCaptureFormat");
+			Object result = m.invoke(systemAudioSource);
+			if (result instanceof AudioFormat) {
+				AudioFormat fmt = (AudioFormat) result;
+				System.out.println("System audio native format: " + fmt);
+				return fmt;
+			}
+		} catch (NoSuchMethodException ignored) {
+			// Source doesn't expose its format; assume it already matches target.
+			System.out.println("WARNING: SystemAudioSource does not expose getCaptureFormat(). "
+					+ "Assuming captured audio is already mono/" + AUDIO_SAMPLE_RATE + "Hz/16-bit. "
+					+ "If recordings run long, this assumption is likely wrong - "
+					+ "add getCaptureFormat() to WasapiAudioSource.");
+		} catch (Exception e) {
+			System.err.println("Failed to resolve system audio format: " + e.getMessage());
+		}
+		return new AudioFormat(AUDIO_SAMPLE_RATE, 16, AUDIO_CHANNELS, true, false);
+	}
+
+	private short[] normalizeToTargetFormat(byte[] raw, int length, AudioFormat nativeFormat) {
+		if (nativeFormat == null || length <= 0) {
+			return new short[0];
+		}
+
+		int srcChannels = nativeFormat.getChannels();
+		float srcRate = nativeFormat.getSampleRate();
+		AudioFormat.Encoding encoding = nativeFormat.getEncoding();
+		int sampleSizeInBits = nativeFormat.getSampleSizeInBits();
+
+		short[] rawShorts;
+
+		// Convert 32-bit Float (Standard for WASAPI Shared Mode) to 16-bit Short PCM
+		if (encoding == AudioFormat.Encoding.PCM_FLOAT || sampleSizeInBits == 32) {
+			int floatCount = length / 4;
+			rawShorts = new short[floatCount];
+			for (int i = 0; i < floatCount; i++) {
+				int intBits = (raw[i * 4] & 0xFF) | ((raw[i * 4 + 1] & 0xFF) << 8) | ((raw[i * 4 + 2] & 0xFF) << 16)
+						| ((raw[i * 4 + 3] & 0xFF) << 24);
+				float floatVal = Float.intBitsToFloat(intBits);
+				// Clamp float sample [-1.0f, 1.0f] to 16-bit signed integer range
+				floatVal = Math.max(-1.0f, Math.min(1.0f, floatVal));
+				rawShorts[i] = (short) (floatVal * 32767.0f);
+			}
+		} else {
+			// Standard PCM 16-bit
+			rawShorts = bytesToShorts(raw, length);
+		}
+
+		// Downmix multi-channel audio to mono
+		short[] mono = (srcChannels <= 1) ? rawShorts : downmixToMono(rawShorts, srcChannels);
+
+		// Resample if native rate differs from target rate (e.g., 48000Hz -> 44100Hz)
+		if (Math.abs(srcRate - AUDIO_SAMPLE_RATE) < 1.0f) {
+			return mono;
+		}
+
+		return resampleLinear(mono, srcRate, AUDIO_SAMPLE_RATE);
+	}
+
+	/** Averages interleaved channel samples down to mono. */
+	private short[] downmixToMono(short[] interleaved, int channels) {
+		int frames = interleaved.length / channels;
+		short[] mono = new short[frames];
+		for (int i = 0; i < frames; i++) {
+			int sum = 0;
+			for (int c = 0; c < channels; c++) {
+				sum += interleaved[i * channels + c];
+			}
+			mono[i] = (short) (sum / channels);
+		}
+		return mono;
+	}
+
+	/**
+	 * Simple linear-interpolation resampler. Good enough for speech/system audio,
+	 * not audiophile grade.
+	 */
+	private short[] resampleLinear(short[] input, float srcRate, float dstRate) {
+		if (input.length == 0) {
+			return input;
+		}
+		double ratio = dstRate / srcRate;
+		int outLength = Math.max(1, (int) Math.round(input.length * ratio));
+		short[] output = new short[outLength];
+
+		for (int i = 0; i < outLength; i++) {
+			double srcPos = i / ratio;
+			int idx0 = (int) Math.floor(srcPos);
+			int idx1 = Math.min(idx0 + 1, input.length - 1);
+			idx0 = Math.min(idx0, input.length - 1);
+			double frac = srcPos - idx0;
+			output[i] = (short) Math.round(input[idx0] * (1.0 - frac) + input[idx1] * frac);
+		}
+		return output;
 	}
 
 	private TargetDataLine openMic() throws Exception {

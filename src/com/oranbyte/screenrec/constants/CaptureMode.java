@@ -1,16 +1,32 @@
 package com.oranbyte.screenrec.constants;
 
+import javax.swing.Icon;
+
 public enum CaptureMode {
-	RECTANGLE("Rectangle"), WINDOW("Window"), ENTIRE_SCREEN("Entire Screen");
 
-	private final String displayName;
+    RECTANGLE("Rectangle", Icons.RECTANGLE.icon(24)),
+    WINDOW("Window", Icons.WINDOW.icon(24)),
+    ENTIRE_SCREEN("Entire Screen", Icons.ENTIRE_SCREEN.icon(24));
 
-	CaptureMode(String displayName) {
-		this.displayName = displayName;
-	}
+    private final String displayName;
+    private final Icon icon;
 
-	@Override
-	public String toString() {
-		return displayName;
-	}
+    CaptureMode(String displayName, Icon icon) {
+        this.displayName = displayName;
+        this.icon = icon;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public Icon getIcon() {
+        return icon;
+    }
+
+    @Override
+    public String toString() {
+        return displayName;
+    }
 }
+

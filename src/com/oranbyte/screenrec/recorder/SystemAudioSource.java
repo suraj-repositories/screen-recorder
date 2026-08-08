@@ -1,5 +1,7 @@
 package com.oranbyte.screenrec.recorder;
 
+import javax.sound.sampled.AudioFormat;
+
 /**
  * plug-able abstraction
  */
@@ -25,4 +27,6 @@ public interface SystemAudioSource {
 	 * Called once when capture stops. Must release any native resources.
 	 */
 	void stop();
+
+	AudioFormat getCaptureFormat();
 }

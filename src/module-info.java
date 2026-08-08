@@ -9,7 +9,7 @@ module ScreenRecorder {
 	requires xuggle.xuggler;
 	requires com.sun.jna;
 	requires com.sun.jna.platform;
-
+ 
 	requires javafx.controls;
 	requires javafx.graphics;
 	requires javafx.media;

@@ -111,6 +111,7 @@ public class MainFrame extends JFrame {
 		ToolbarButton newButton = new ToolbarButton("New", Icons.PLUS);
 
 		ToolbarComboBox<CaptureMode> captureMode = new ToolbarComboBox<>(CaptureMode.values());
+		captureMode.setPreferredSize(new Dimension(230, captureMode.getPreferredSize().height));
 		captureMode.setMaximumSize(new Dimension(250, captureMode.getPreferredSize().height));
 
 		ImageSwitch modeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));

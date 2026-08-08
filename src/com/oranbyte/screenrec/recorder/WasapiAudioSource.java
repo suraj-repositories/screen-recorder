@@ -1,5 +1,7 @@
 package com.oranbyte.screenrec.recorder;
 
+import javax.sound.sampled.AudioFormat;
+
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.platform.win32.Ole32;
@@ -299,6 +301,80 @@ public class WasapiAudioSource implements SystemAudioSource {
 			com.sun.jna.Function func = com.sun.jna.Function.getFunction(pFunc, com.sun.jna.Function.ALT_CONVENTION);
 			int res = func.invokeInt(new Object[] { pThis, NumFramesRead });
 			return new HRESULT(res);
+		}
+	}
+
+	@Override
+	public AudioFormat getCaptureFormat() {
+		boolean tempInit = false;
+		Pointer pAudioClientToRelease = null;
+		Pointer pWfex = null;
+
+		try {
+			Pointer client = this.pAudioClient;
+			if (client == null) {
+				Ole32.INSTANCE.CoInitializeEx(null, Ole32.COINIT_MULTITHREADED);
+				tempInit = true;
+
+				Pointer pEnumerator = createDeviceEnumerator();
+				Pointer pDevice = getDevice(pEnumerator, mode == Mode.LOOPBACK ? 0 : 1);
+				releaseComObject(pEnumerator);
+
+				client = activateAudioClient(pDevice);
+				releaseComObject(pDevice);
+				pAudioClientToRelease = client;
+			}
+
+			PointerByReference ppFormat = new PointerByReference();
+			HRESULT hr = WasapiNative.IAudioClient_GetMixFormat(client, ppFormat);
+			checkHr(hr, "IAudioClient::GetMixFormat");
+			pWfex = ppFormat.getValue();
+
+			short wFormatTag = pWfex.getShort(0);
+			short nChannels = pWfex.getShort(2);
+			int nSamplesPerSec = pWfex.getInt(4);
+			short wBitsPerSample = pWfex.getShort(14);
+			short cbSize = pWfex.getShort(16);
+
+			if ((wFormatTag & 0xFFFF) == 0xFFFE && cbSize >= 22) {
+				short validBits = pWfex.getShort(18);
+				if (validBits > 0) {
+					wBitsPerSample = validBits;
+				}
+
+				int subFormatType = pWfex.getInt(24);
+				if (subFormatType == 3) {
+					wFormatTag = 3;
+				} else if (subFormatType == 1) {
+					wFormatTag = 1;
+				}
+			}
+
+			AudioFormat.Encoding encoding;
+			if (wFormatTag == 3) {
+				encoding = AudioFormat.Encoding.PCM_FLOAT;
+			} else {
+				encoding = AudioFormat.Encoding.PCM_SIGNED;
+			}
+
+			int frameSize = (nChannels * wBitsPerSample) / 8;
+			boolean bigEndian = false;
+
+			return new AudioFormat(encoding, (float) nSamplesPerSec, wBitsPerSample, nChannels, frameSize,
+					(float) nSamplesPerSec, bigEndian);
+
+		} catch (Exception e) {
+			return new AudioFormat(44100.0f, 16, 2, true, false);
+		} finally {
+			if (pWfex != null) {
+				Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			}
+			if (pAudioClientToRelease != null) {
+				releaseComObject(pAudioClientToRelease);
+			}
+			if (tempInit) {
+				Ole32.INSTANCE.CoUninitialize();
+			}
 		}
 	}
 }
