@@ -171,6 +171,9 @@ public class ControlFrame extends JWindow {
 			mainFrame.setVisible(true);
 			mainFrame.toFront();
 			mainFrame.requestFocus();
+			
+		 
+			 
 		});
 
 		root.add(recordingControlsPanel);
@@ -190,6 +193,14 @@ public class ControlFrame extends JWindow {
 		modeControlsPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
 
 		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
+		recordingModeSwitch.addChangeListener(e -> { 
+		    ImageSwitch source = (ImageSwitch) e.getSource();
+		    RecordingMode selectedMode = source.getRecordingMode();
+ 
+		    if (selectedMode != null) {
+				setRecordingMode(selectedMode);
+			}
+		});
 
 		captureModeComboBox = new ToolbarComboBox<>(CaptureMode.values());
 
@@ -421,7 +432,8 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void setRecordingMode(RecordingMode mode) {
-		recordingModeSwitch.setRecordingMode(mode);
+		selectionFrame.drawPanel.setRecordingMode(mode);
+		recordingModeSwitch.setRecordingMode(mode); 
 	}
 
 	public RecordingMode getRecordingMode() {

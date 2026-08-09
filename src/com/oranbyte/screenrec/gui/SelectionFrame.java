@@ -12,7 +12,10 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
 import javax.swing.JWindow;
+import javax.swing.SwingConstants;
 
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
@@ -80,6 +83,9 @@ public class SelectionFrame extends JWindow {
 	}
 
 	public void closeSelection() {
+		if (drawPanel != null && drawPanel.selectedRectangle != null) {
+			drawPanel.selectedRectangle = null;
+		}
 		setVisible(false);
 	}
 

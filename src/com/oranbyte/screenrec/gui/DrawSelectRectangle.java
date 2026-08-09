@@ -2,12 +2,15 @@ package com.oranbyte.screenrec.gui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.MouseEvent;
@@ -17,14 +20,20 @@ import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.swing.BorderFactory;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.border.Border;
 
 import com.oranbyte.screenrec.constants.AppColors;
+import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.constants.RecordingState;
+import com.oranbyte.screenrec.gui.components.SizeLabel;
 import com.oranbyte.screenrec.util.WindowFinder;
 
 public class DrawSelectRectangle extends JPanel implements MouseListener, MouseMotionListener {
@@ -42,6 +51,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Point dragOffset = null;
 	private boolean isMoving = false;
 	private boolean isCreated = false;
+	private SizeLabel sizeLabel;
 
 	private CaptureMode captureMode;
 	private RecordingMode recordingMode;
@@ -70,7 +80,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 		addMouseListener(this);
 		addMouseMotionListener(this);
+		setLayout(null);
 		setOpaque(false);
+
+		sizeLabel = new SizeLabel("0x0");
+		add(sizeLabel);
 
 		Timer marchingAntsTimer = new Timer(50, e -> {
 			dashPhase += 1f;
@@ -429,7 +443,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
-		 
+
 		if (recordingActive) {
 			return;
 		}
@@ -447,17 +461,19 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			int height = Math.abs(py - startPoint.y);
 
 			selectedRectangle.setBounds(x, y, width, height);
-			
- 
+
+			updateSizeLabel();
+
 		} else if (activeHandle != NONE && anchorPoint != null) {
 			resizeSelection(p);
+			updateSizeLabel();
 		} else if (isMoving && dragOffset != null && selectedRectangle != null) {
 			int newX = p.x - dragOffset.x;
 			int newY = p.y - dragOffset.y;
 			newX = Math.max(0, Math.min(newX, getWidth() - selectedRectangle.width));
 			newY = Math.max(0, Math.min(newY, getHeight() - selectedRectangle.height));
 			selectedRectangle.setLocation(newX, newY);
-			
+
 		}
 		repaint();
 	}
@@ -532,6 +548,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			notifyState(RecordingState.IDLE);
 		}
 
+		sizeLabel.hideAnimated();
 		repaint();
 	}
 
@@ -585,6 +602,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		} else {
 			setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR));
 		}
+
 	}
 
 	public Rectangle getSelectedRectangle() {
@@ -593,5 +611,48 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	public void setScreenImage(BufferedImage image) {
 		this.screenImage = image;
+	}
+
+	private void updateSizeLabel() {
+
+		if (selectedRectangle == null) {
+			return;
+		}
+		
+		if(recordingMode == RecordingMode.SCREENSHOT) {  
+			sizeLabel.hideInstantly();
+			revalidate();
+			repaint();
+			return;
+		}
+
+		Rectangle r = selectedRectangle.getBounds();
+
+		sizeLabel.setText(r.width + "x" + r.height);
+
+		Dimension d = sizeLabel.getPreferredSize();
+
+		int gap = 10;
+
+		int labelX = r.x + r.width + gap;
+		int labelY = r.y + r.height + gap;
+
+		if (labelX + d.width > getWidth()) {
+			labelX = r.x + r.width - d.width - gap;
+		}
+
+		if (labelY + d.height > getHeight()) {
+			labelY = r.y + r.height - d.height - gap;
+		}
+
+		labelX = Math.max(0, labelX);
+		labelY = Math.max(0, labelY);
+
+		sizeLabel.setBounds(labelX, labelY, d.width, d.height);
+
+		sizeLabel.showInstantly();
+
+		revalidate();
+		repaint();
 	}
 }
