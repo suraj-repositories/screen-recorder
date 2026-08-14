@@ -27,6 +27,11 @@ public class RecordingBorderOverlay extends JWindow {
 		setBackground(new Color(0, 0, 0, 0));
 		JPanel panel = new JPanel() {
 
+			/**
+			 * 
+			 */
+			private static final long serialVersionUID = 1L;
+
 			@Override
 			protected void paintComponent(Graphics g) {
 				super.paintComponent(g);

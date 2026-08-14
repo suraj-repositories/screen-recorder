@@ -22,6 +22,8 @@ import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.gui.MainFrame;
 import com.oranbyte.screenrec.util.CursorUtils;
 import com.oranbyte.screenrec.util.NotificationUtil;
+import com.sun.jna.platform.win32.Ole32;
+import com.sun.jna.platform.win32.WinNT.HRESULT;
 import com.xuggle.mediatool.IMediaWriter;
 import com.xuggle.mediatool.ToolFactory;
 import com.xuggle.xuggler.ICodec;
@@ -32,6 +34,9 @@ public class ScreenRecorder {
 	private static final int AUDIO_CHANNELS = 1;
 	private static final int AUDIO_STREAM_INDEX = 1;
 	private static final int AUDIO_BUFFER_BYTES = 4096;
+	private static final int RING_BUFFER_SECONDS = 5;
+	private static final long MIX_STALL_TIMEOUT_MS = 200;
+	private static final int MIX_CHUNK_FRAMES = 1024;
 
 	private final Rectangle captureArea;
 	private final String outputFileName;
@@ -62,6 +67,11 @@ public class ScreenRecorder {
 
 	private Thread videoThread;
 	private Thread audioThread;
+	private Thread micCaptureThread;
+	private Thread systemCaptureThread;
+
+	private CircularByteBuffer micRing;
+	private CircularByteBuffer systemRing;
 
 	private final AtomicInteger framesEncoded = new AtomicInteger(0);
 	private final CountDownLatch captureStarted = new CountDownLatch(1);
@@ -140,7 +150,7 @@ public class ScreenRecorder {
 		videoThread.start();
 
 		if (audioStreamAdded) {
-			audioThread = new Thread(this::recordAudio, "Screen Recorder - Audio");
+			audioThread = new Thread(this::recordAudio, "Screen Recorder - Audio Mixer");
 			audioThread.start();
 		}
 
@@ -263,43 +273,53 @@ public class ScreenRecorder {
 		}
 	}
 
-	private void recordAudio() {
-		byte[] rawMic = new byte[AUDIO_BUFFER_BYTES];
-		byte[] rawSystem = new byte[AUDIO_BUFFER_BYTES];
+	// ---------------------------------------------------------------
+	// Audio: two dedicated capture threads (mic + system) feed ring
+	// buffers; this method runs on the mixer thread, draining both
+	// buffers, mixing, and encoding into the writer.
+	// ---------------------------------------------------------------
 
-		// Maintain running sample counter to compute accurate linear timestamps
+	private void recordAudio() {
+		int bytesPerSample = 2; // 16-bit mono
+		int ringCapacity = AUDIO_SAMPLE_RATE * bytesPerSample * RING_BUFFER_SECONDS;
+
+		if (isMicrophoneEnabled) {
+			micRing = new CircularByteBuffer(ringCapacity);
+			micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture");
+			micCaptureThread.setPriority(Thread.MAX_PRIORITY);
+			micCaptureThread.start();
+		}
+
+		if (isSpeakerEnabled && systemAudioSource != null) {
+			systemRing = new CircularByteBuffer(ringCapacity);
+			systemCaptureThread = new Thread(this::captureSystemAudio, "Screen Recorder - System Audio Capture");
+			systemCaptureThread.setPriority(Thread.MAX_PRIORITY);
+			systemCaptureThread.start();
+		}
+
 		long totalAudioSamplesWritten = 0;
+		int chunkBytes = MIX_CHUNK_FRAMES * bytesPerSample;
+		byte[] micChunk = micRing != null ? new byte[chunkBytes] : null;
+		byte[] sysChunk = systemRing != null ? new byte[chunkBytes] : null;
 
 		try {
-			if (isMicrophoneEnabled) {
-				micLine = openMic();
-			}
-
-			if (isSpeakerEnabled && systemAudioSource != null) {
-				systemAudioSource.start(AUDIO_SAMPLE_RATE, AUDIO_CHANNELS);
-				systemAudioNativeFormat = resolveSystemAudioFormat();
-			}
-
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording)
+				if (!isRecording) {
 					break;
+				}
 
 				short[] micSamples = null;
 				short[] systemSamples = null;
 
-				if (micLine != null && micLine.available() > 0) {
-					int read = micLine.read(rawMic, 0, Math.min(micLine.available(), rawMic.length));
-					if (read > 0) {
-						micSamples = bytesToShorts(rawMic, read);
-					}
+				if (micRing != null) {
+					micRing.read(micChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					micSamples = bytesToShorts(micChunk, chunkBytes);
 				}
 
-				if (isSpeakerEnabled && systemAudioSource != null) {
-					int read = systemAudioSource.read(rawSystem, 0, rawSystem.length);
-					if (read > 0) {
-						systemSamples = normalizeToTargetFormat(rawSystem, read, systemAudioNativeFormat);
-					}
+				if (systemRing != null) {
+					systemRing.read(sysChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					systemSamples = bytesToShorts(sysChunk, chunkBytes);
 				}
 
 				short[] outSamples;
@@ -312,30 +332,113 @@ public class ScreenRecorder {
 				}
 
 				if (outSamples != null && outSamples.length > 0) {
-					// Compute sample-accurate time in nanoseconds
+					// Sample-accurate timestamp derived from total samples written so far
 					long sampleTimestampNanos = (totalAudioSamplesWritten * 1_000_000_000L) / AUDIO_SAMPLE_RATE;
 
 					synchronized (writerLock) {
 						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, sampleTimestampNanos, TimeUnit.NANOSECONDS);
 					}
 
-					// Track total frames processed (for mono: 1 sample = 1 frame)
 					totalAudioSamplesWritten += outSamples.length;
-				} else {
-					// Prevent high-CPU spinning when no audio data is ready
-					Thread.sleep(5);
 				}
 			}
 		} catch (Exception e) {
-			System.err.println("Error during audio capture: " + e.getMessage());
+			System.err.println("Error during audio mixing: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				if (micCaptureThread != null) {
+					micCaptureThread.join(2000);
+				}
+				if (systemCaptureThread != null) {
+					systemCaptureThread.join(2000);
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			if (micRing != null) {
+				micRing.markFinished();
+			}
+			if (systemRing != null) {
+				systemRing.markFinished();
+			}
+		}
+	}
+
+	private void captureMic() {
+		try {
+			micLine = openMic();
+			byte[] raw = new byte[AUDIO_BUFFER_BYTES];
+
+			while (isRecording) {
+				awaitResumeIfPaused();
+				if (!isRecording) {
+					break;
+				}
+
+				int availableBytes = micLine.available();
+				if (availableBytes <= 0) {
+					Thread.sleep(5);
+					continue;
+				}
+
+				int read = micLine.read(raw, 0, Math.min(availableBytes, raw.length));
+				if (read > 0) {
+					micRing.write(raw, 0, read);
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Error capturing microphone audio: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			if (micLine != null) {
 				micLine.stop();
 				micLine.close();
 			}
+		}
+	}
+
+	private void captureSystemAudio() {
+		// WASAPI (via JNA) requires COM to be initialized on the thread that
+		// actually pumps the audio client, otherwise capture can silently
+		// fail or behave inconsistently.
+		HRESULT hr = null;
+		boolean comInitialized = false;
+		try {
+			hr = Ole32.INSTANCE.CoInitializeEx(null, Ole32.COINIT_MULTITHREADED);
+			comInitialized = hr.intValue() >= 0;
+
+			systemAudioSource.start(AUDIO_SAMPLE_RATE, AUDIO_CHANNELS);
+			systemAudioNativeFormat = resolveSystemAudioFormat();
+
+			byte[] raw = new byte[AUDIO_BUFFER_BYTES];
+
+			while (isRecording) {
+				awaitResumeIfPaused();
+				if (!isRecording) {
+					break;
+				}
+
+				int read = systemAudioSource.read(raw, 0, raw.length);
+				if (read > 0) {
+					short[] normalized = normalizeToTargetFormat(raw, read, systemAudioNativeFormat);
+					if (normalized.length > 0) {
+						byte[] outBytes = shortsToBytes(normalized);
+						systemRing.write(outBytes, 0, outBytes.length);
+					}
+				} else {
+					Thread.sleep(5);
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Error capturing system audio: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
 			if (systemAudioSource != null) {
 				systemAudioSource.stop();
+			}
+			if (comInitialized) {
+				Ole32.INSTANCE.CoUninitialize();
 			}
 		}
 	}
@@ -462,6 +565,15 @@ public class ScreenRecorder {
 		return samples;
 	}
 
+	private byte[] shortsToBytes(short[] samples) {
+		byte[] bytes = new byte[samples.length * 2];
+		for (int i = 0; i < samples.length; i++) {
+			bytes[2 * i] = (byte) (samples[i] & 0xFF);
+			bytes[2 * i + 1] = (byte) ((samples[i] >> 8) & 0xFF);
+		}
+		return bytes;
+	}
+
 	private short[] mix(short[] a, short[] b) {
 		int len = Math.min(a.length, b.length);
 		short[] out = new short[len];
@@ -487,34 +599,152 @@ public class ScreenRecorder {
 	}
 
 	private void finalizeWhenDone() {
-		try {
-			if (videoThread != null) {
-				videoThread.join();
-			}
-			if (audioThread != null) {
-				audioThread.join();
-			}
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
+	    try {
+	        if (videoThread != null) {
+	            videoThread.join();
+	        }
+
+	        if (audioThread != null) {
+	            audioThread.join();
+	        }
+	    } catch (InterruptedException e) {
+	        Thread.currentThread().interrupt();
+	    }
+
+	    try {
+	        if (writer != null) {
+	            if (framesEncoded.get() > 0) {
+	                writer.close();
+	            } else {
+	                System.err.println("No frames were recorded; skipping writer.close()");
+	            }
+	        }
+	    } catch (Exception e) {
+	        System.err.println("Failed to finalize video trailer: " + e.getMessage());
+	        e.printStackTrace();
+	    }
+
+	    NotificationUtil.notify(
+	        "Video saved",
+	        outputFileName,
+	        new File(outputFileName),
+	        () -> System.out.println("clicked")
+	    );
+
+	    /*
+	     * JavaFX preview must be initialized on the JavaFX application thread.
+	     *
+	     * IMPORTANT:
+	     * Do not call JavaFX code directly from the recorder/finalizer thread.
+	     */
+	    if (mainFrame != null) {
+//	        javax.swing.SwingUtilities.invokeLater(() -> {
+//	            try {
+//	                javafx.application.Platform.runLater(() -> {
+//	                    try {
+//	                        mainFrame.setVideoPanel(outputFileName);
+//	                    } catch (Exception e) {
+//	                        System.err.println(
+//	                            "Failed to load video preview panel: " + e.getMessage()
+//	                        );
+//	                        e.printStackTrace();
+//	                    }
+//	                });
+//	            } catch (IllegalStateException e) {
+//	                System.err.println(
+//	                    "JavaFX toolkit is not initialized: " + e.getMessage()
+//	                );
+//	            }
+//	        });
+	        mainFrame.setVideoPanel(outputFileName);
+	    }
+	} 
+	
+	/**
+	 * Minimal blocking ring buffer used to decouple audio capture threads from
+	 * the mixer/encoder thread. {@link #read} zero-pads and returns after a
+	 * timeout if not enough data is available, so a stalled/slow source never
+	 * blocks the other source from being encoded.
+	 */
+	private static class CircularByteBuffer {
+		private final byte[] buffer;
+		private int writePos = 0;
+		private int readPos = 0;
+		private int available = 0;
+		private volatile boolean finished = false;
+		private final Object lock = new Object();
+
+		CircularByteBuffer(int capacity) {
+			this.buffer = new byte[Math.max(capacity, 4096)];
 		}
 
-		try {
-			if (writer != null) {
-				if (framesEncoded.get() > 0) {
-					writer.close();
-				} else {
-					System.err.println("No frames were recorded; skipping writer.close()");
+		void write(byte[] data, int off, int len) {
+			synchronized (lock) {
+				int written = 0;
+				while (written < len) {
+					while (available == buffer.length && !finished) {
+						try {
+							lock.wait();
+						} catch (InterruptedException e) {
+							Thread.currentThread().interrupt();
+							return;
+						}
+					}
+					if (finished) {
+						return;
+					}
+					int spaceLeft = buffer.length - available;
+					int chunk = Math.min(spaceLeft, len - written);
+					for (int i = 0; i < chunk; i++) {
+						buffer[writePos] = data[off + written + i];
+						writePos = (writePos + 1) % buffer.length;
+					}
+					available += chunk;
+					written += chunk;
+					lock.notifyAll();
 				}
 			}
-		} catch (Exception e) {
-			System.err.println("Failed to finalize video trailer: " + e.getMessage());
 		}
 
-		NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName), () -> {
-			System.out.println("clicked");
-		});
+		/**
+		 * Reads up to len bytes, waiting up to timeoutMs for enough data. Any
+		 * shortfall is zero-padded so callers always get exactly len bytes.
+		 */
+		void read(byte[] out, int off, int len, long timeoutMs) {
+			synchronized (lock) {
+				long deadline = System.currentTimeMillis() + timeoutMs;
+				while (available < len && !finished) {
+					long remaining = deadline - System.currentTimeMillis();
+					if (remaining <= 0) {
+						break;
+					}
+					try {
+						lock.wait(remaining);
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+						break;
+					}
+				}
 
-		mainFrame.setVideoPanel(outputFileName);
+				int toRead = Math.min(available, len);
+				for (int i = 0; i < toRead; i++) {
+					out[off + i] = buffer[readPos];
+					readPos = (readPos + 1) % buffer.length;
+				}
+				available -= toRead;
+				for (int i = toRead; i < len; i++) {
+					out[off + i] = 0;
+				}
+				lock.notifyAll();
+			}
+		}
+
+		void markFinished() {
+			synchronized (lock) {
+				finished = true;
+				lock.notifyAll();
+			}
+		}
 	}
 
 }

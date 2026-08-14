@@ -15,8 +15,14 @@ module ScreenRecorder {
 	requires javafx.media;
 	requires javafx.swing;
 
-	opens com.oranbyte.screenrec.util to com.sun.jna;
+	opens com.oranbyte.screenrec.util to com.sun.jna; 
 
 	exports com.oranbyte.screenrec.util;
-	exports com.oranbyte.screenrec.recorder;
+	exports com.oranbyte.screenrec.recorder; 
+    exports com.oranbyte.screenrec;
+    
+    exports com.oranbyte.screenrec.gui;
+
+    opens com.oranbyte.screenrec.gui to javafx.fxml;
+
 }
