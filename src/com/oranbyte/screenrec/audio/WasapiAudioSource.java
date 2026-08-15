@@ -24,6 +24,7 @@ public class WasapiAudioSource implements SystemAudioSource {
 	private static final int AUDCLNT_SHAREMODE_SHARED = 0;
 	private static final int AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000;
 	private static final int AUDCLNT_STREAMFLAGS_EVENTCALLBACK = 0x00040000;
+	private static final long POLL_SLEEP_MS = 5L;
 
 	private final Mode mode;
 	private final ReentrantLock lifecycleLock = new ReentrantLock();
@@ -33,6 +34,13 @@ public class WasapiAudioSource implements SystemAudioSource {
 	private Pointer pAudioClient = null;
 	private Pointer pCaptureClient = null;
 	private HANDLE hAudioEvent = null;
+
+	// Event-driven mode is unsupported by many drivers when combined with
+	// AUDCLNT_STREAMFLAGS_LOOPBACK (fails IAudioClient::Initialize with
+	// AUDCLNT_E_UNSUPPORTED_FORMAT / 0x88890008). Loopback sources therefore
+	// fall back to polling; plain capture sources keep using the event for
+	// lower latency/CPU usage.
+	private boolean eventDriven;
 
 	private byte[] pendingBuffer = new byte[0];
 	private int pendingOffset = 0;
@@ -68,6 +76,11 @@ public class WasapiAudioSource implements SystemAudioSource {
 			pAudioClient = activateAudioClient(pDevice);
 			releaseComObject(pDevice);
 
+			// Loopback + event-callback is rejected by many drivers (e.g. Realtek)
+			// with AUDCLNT_E_UNSUPPORTED_FORMAT. Only use the event for non-loopback
+			// (regular capture) sources.
+			this.eventDriven = (mode != Mode.LOOPBACK);
+
 			PointerByReference ppFormat = new PointerByReference();
 			hr = WasapiNative.IAudioClient_GetMixFormat(pAudioClient, ppFormat);
 			checkHr(hr, "IAudioClient::GetMixFormat");
@@ -79,7 +92,7 @@ public class WasapiAudioSource implements SystemAudioSource {
 				short nBlockAlign = pWfex.getShort(12);
 				this.bytesPerFrame = nBlockAlign > 0 ? nBlockAlign : (nChannels * (wBitsPerSample / 8));
 
-				int flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK;
+				int flags = eventDriven ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0;
 				if (mode == Mode.LOOPBACK) {
 					flags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
 				}
@@ -95,13 +108,15 @@ public class WasapiAudioSource implements SystemAudioSource {
 				Ole32.INSTANCE.CoTaskMemFree(pWfex);
 			}
 
-			hAudioEvent = Kernel32.INSTANCE.CreateEvent(null, false, false, null);
-			if (hAudioEvent == null) {
-				throw new RuntimeException("Failed to create Windows Event handle.");
-			}
+			if (eventDriven) {
+				hAudioEvent = Kernel32.INSTANCE.CreateEvent(null, false, false, null);
+				if (hAudioEvent == null) {
+					throw new RuntimeException("Failed to create Windows Event handle.");
+				}
 
-			hr = WasapiNative.IAudioClient_SetEventHandle(pAudioClient, hAudioEvent);
-			checkHr(hr, "IAudioClient::SetEventHandle");
+				hr = WasapiNative.IAudioClient_SetEventHandle(pAudioClient, hAudioEvent);
+				checkHr(hr, "IAudioClient::SetEventHandle");
+			}
 
 			PointerByReference ppCapture = new PointerByReference();
 			hr = WasapiNative.IAudioClient_GetService(pAudioClient, WasapiNative.IID_IAudioCaptureClient, ppCapture);
@@ -180,9 +195,20 @@ public class WasapiAudioSource implements SystemAudioSource {
 						null);
 
 				if (hr.intValue() == WasapiNative.AUDCLNT_S_BUFFER_EMPTY) {
+					boolean useEvent = eventDriven && hAudioEvent != null;
 					lifecycleLock.unlock();
-					Kernel32.INSTANCE.WaitForSingleObject(hAudioEvent, 500);
-					lifecycleLock.lock();
+					try {
+						if (useEvent) {
+							Kernel32.INSTANCE.WaitForSingleObject(hAudioEvent, 500);
+						} else {
+							Thread.sleep(POLL_SLEEP_MS);
+						}
+					} catch (InterruptedException ie) {
+						Thread.currentThread().interrupt();
+						return totalRead;
+					} finally {
+						lifecycleLock.lock();
+					}
 					continue;
 				}
 				checkHr(hr, "IAudioCaptureClient::GetBuffer");

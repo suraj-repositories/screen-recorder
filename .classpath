@@ -38,5 +38,20 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/Eclipse workspace/screen-recorder/lib/json-20260719.jar">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/Eclipse workspace/screen-recorder/lib/bcpkix-jdk18on-1.85.jar">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Users/Shubham/Documents/Eclipse workspace/screen-recorder/lib/bcprov-jdk18on-1.85.2.jar">
+		<attributes>
+			<attribute name="module" value="true"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

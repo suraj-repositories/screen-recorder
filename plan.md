@@ -20,4 +20,23 @@
 6. add color picker
 7. add selection size on time -- done
 8. fix the video recording : large time issue -- done
+9. update share system : 
+
+├── share
+│   │
+│   ├── FileShareManager.java
+│   ├── FileShareProvider.java
+│   ├── ShareDevice.java
+│   ├── TransferListener.java
+│   │
+│   └── localsend
+│       ├── LocalSendProvider.java
+│       ├── LocalSendClient.java
+│       ├── LocalSendServer.java
+│       ├── LocalSendDiscovery.java
+│       ├── LocalSendIdentity.java
+│       ├── LocalSendDevice.java
+│       ├── LocalSendFile.java
+│       ├── LocalSendProtocol.java
+│       └── LocalSendSslContext.java
 
