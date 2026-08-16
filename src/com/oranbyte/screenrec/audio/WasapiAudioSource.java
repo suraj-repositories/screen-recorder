@@ -25,7 +25,8 @@ public class WasapiAudioSource implements SystemAudioSource {
 	private static final int AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000;
 	private static final int AUDCLNT_STREAMFLAGS_EVENTCALLBACK = 0x00040000;
 	private static final long POLL_SLEEP_MS = 5L;
-
+	private static final int AUDCLNT_E_UNSUPPORTED_FORMAT = 0x88890008;
+ 
 	private final Mode mode;
 	private final ReentrantLock lifecycleLock = new ReentrantLock();
 
@@ -33,13 +34,7 @@ public class WasapiAudioSource implements SystemAudioSource {
 	private volatile boolean isStarted = false;
 	private Pointer pAudioClient = null;
 	private Pointer pCaptureClient = null;
-	private HANDLE hAudioEvent = null;
-
-	// Event-driven mode is unsupported by many drivers when combined with
-	// AUDCLNT_STREAMFLAGS_LOOPBACK (fails IAudioClient::Initialize with
-	// AUDCLNT_E_UNSUPPORTED_FORMAT / 0x88890008). Loopback sources therefore
-	// fall back to polling; plain capture sources keep using the event for
-	// lower latency/CPU usage.
+	private HANDLE hAudioEvent = null; 
 	private boolean eventDriven;
 
 	private byte[] pendingBuffer = new byte[0];
@@ -50,13 +45,7 @@ public class WasapiAudioSource implements SystemAudioSource {
 		this.mode = mode;
 	}
 
-	/**
-	 * Performs all the slow WASAPI setup (device enumeration, activation,
-	 * format negotiation, event/service creation) WITHOUT starting the audio
-	 * engine clock. Call {@link #engineStart()} on all prepared sources back
-	 * to back to minimize the timing offset between independent devices
-	 * (e.g. loopback vs. microphone) so their sample clocks start together.
-	 */
+	 
 	public void prepare(int sampleRate, int channels) throws Exception {
 		lifecycleLock.lock();
 		try {
@@ -76,36 +65,65 @@ public class WasapiAudioSource implements SystemAudioSource {
 			pAudioClient = activateAudioClient(pDevice);
 			releaseComObject(pDevice);
 
-			// Loopback + event-callback is rejected by many drivers (e.g. Realtek)
-			// with AUDCLNT_E_UNSUPPORTED_FORMAT. Only use the event for non-loopback
-			// (regular capture) sources.
 			this.eventDriven = (mode != Mode.LOOPBACK);
 
 			PointerByReference ppFormat = new PointerByReference();
 			hr = WasapiNative.IAudioClient_GetMixFormat(pAudioClient, ppFormat);
 			checkHr(hr, "IAudioClient::GetMixFormat");
 			Pointer pWfex = ppFormat.getValue();
+			boolean freeWfex = true;
 
-			try {
-				short nChannels = pWfex.getShort(2);
-				short wBitsPerSample = pWfex.getShort(14);
-				short nBlockAlign = pWfex.getShort(12);
-				this.bytesPerFrame = nBlockAlign > 0 ? nBlockAlign : (nChannels * (wBitsPerSample / 8));
+			try { 
+			    PointerByReference ppClosest = new PointerByReference();
+			    HRESULT fmtHr = WasapiNative.IAudioClient_IsFormatSupported(pAudioClient, AUDCLNT_SHAREMODE_SHARED, pWfex,
+			            ppClosest);
 
-				int flags = eventDriven ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0;
-				if (mode == Mode.LOOPBACK) {
-					flags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
-				}
+			    if (fmtHr.intValue() == 0) {
+			    } else if (fmtHr.intValue() == 1 && ppClosest.getValue() != null) {
+			        Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			        pWfex = ppClosest.getValue();
+			    } else {
+			        Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			        freeWfex = false;  
+			        pWfex = buildFallbackFormat(48000, 2, 16);
+			    }
 
-				// 100ms buffer = 1,000,000 hns (hundred-nanosecond units)
-				long hnsBufferDuration = 1000000L;
-				long hnsPeriodicity = 0L; // Must be 0 in AUDCLNT_SHAREMODE_SHARED
+			    short nChannels = pWfex.getShort(2);
+			    short wBitsPerSample = pWfex.getShort(14);
+			    short nBlockAlign = pWfex.getShort(12);
+			    this.bytesPerFrame = nBlockAlign > 0 ? nBlockAlign : (nChannels * (wBitsPerSample / 8));
 
-				hr = WasapiNative.IAudioClient_Initialize(pAudioClient, AUDCLNT_SHAREMODE_SHARED, flags,
-						hnsBufferDuration, hnsPeriodicity, pWfex, null);
-				checkHr(hr, "IAudioClient::Initialize");
+			    int flags = eventDriven ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0;
+			    if (mode == Mode.LOOPBACK) {
+			        flags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
+			    }
+
+			    long hnsBufferDuration = 1000000L;
+			    long hnsPeriodicity = 0L;
+
+			    hr = WasapiNative.IAudioClient_Initialize(pAudioClient, AUDCLNT_SHAREMODE_SHARED, flags,
+			            hnsBufferDuration, hnsPeriodicity, pWfex, null);
+
+			    if (hr.intValue() == AUDCLNT_E_UNSUPPORTED_FORMAT) { 
+			        if (freeWfex) {
+			            Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			        }
+			        freeWfex = false;
+			        pWfex = buildFallbackFormat(48000, 2, 16);
+			        nBlockAlign = pWfex.getShort(12);
+			        wBitsPerSample = pWfex.getShort(14);
+			        nChannels = pWfex.getShort(2);
+			        this.bytesPerFrame = nBlockAlign;
+
+			        hr = WasapiNative.IAudioClient_Initialize(pAudioClient, AUDCLNT_SHAREMODE_SHARED, flags,
+			                hnsBufferDuration, hnsPeriodicity, pWfex, null);
+			    }
+
+			    checkHr(hr, "IAudioClient::Initialize");
 			} finally {
-				Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			    if (freeWfex) {
+			        Ole32.INSTANCE.CoTaskMemFree(pWfex);
+			    }
 			}
 
 			if (eventDriven) {
@@ -128,13 +146,7 @@ public class WasapiAudioSource implements SystemAudioSource {
 			lifecycleLock.unlock();
 		}
 	}
-
-	/**
-	 * Starts the audio engine clock (IAudioClient::Start) on an already
-	 * {@link #prepare(int, int)}d source. This is intentionally a single,
-	 * cheap native call so that calling it on multiple sources in quick
-	 * succession keeps their sample clocks closely aligned.
-	 */
+ 
 	public void engineStart() throws Exception {
 		lifecycleLock.lock();
 		try {
@@ -403,6 +415,12 @@ public class WasapiAudioSource implements SystemAudioSource {
 			int res = getVTableFunction(pThis, 4).invokeInt(new Object[] { pThis, NumFramesRead });
 			return new HRESULT(res);
 		}
+		
+		public static HRESULT IAudioClient_IsFormatSupported(Pointer pThis, int shareMode, Pointer pFormat,
+		        PointerByReference ppClosestMatch) {
+		    int res = getVTableFunction(pThis, 7).invokeInt(new Object[] { pThis, shareMode, pFormat, ppClosestMatch });
+		    return new HRESULT(res);
+		}
 	}
 
 	@Override
@@ -475,5 +493,22 @@ public class WasapiAudioSource implements SystemAudioSource {
 				Ole32.INSTANCE.CoUninitialize();
 			}
 		}
+	}
+	
+	
+	
+	private Pointer buildFallbackFormat(int sampleRate, int channels, int bitsPerSample) {
+	    com.sun.jna.Memory mem = new com.sun.jna.Memory(18);
+	    short blockAlign = (short) (channels * (bitsPerSample / 8));
+	    int avgBytesPerSec = sampleRate * blockAlign;
+
+	    mem.setShort(0, (short) 1);
+	    mem.setShort(2, (short) channels);
+	    mem.setInt(4, sampleRate);
+	    mem.setInt(8, avgBytesPerSec);
+	    mem.setShort(12, blockAlign);
+	    mem.setShort(14, (short) bitsPerSample);
+	    mem.setShort(16, (short) 0); 
+	    return mem;
 	}
 }

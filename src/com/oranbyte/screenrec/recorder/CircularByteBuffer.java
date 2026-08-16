@@ -45,35 +45,43 @@ public class CircularByteBuffer {
 			}
 		}
 	}
+ 	
+	int read(byte[] out, int off, int len, long timeoutMs) {
+	    synchronized (lock) {
+	        long deadline = System.currentTimeMillis() + timeoutMs;
 
+	        while (available < len && !finished) {
+	            long remaining = deadline - System.currentTimeMillis();
+
+	            if (remaining <= 0) {
+	                break;
+	            }
+
+	            try {
+	                lock.wait(remaining);
+	            } catch (InterruptedException e) {
+	                Thread.currentThread().interrupt();
+	                break;
+	            }
+	        }
+
+	        int toRead = Math.min(available, len);
+
+	        for (int i = 0; i < toRead; i++) {
+	            out[off + i] = buffer[readPos];
+	            readPos = (readPos + 1) % buffer.length;
+	        }
+
+	        available -= toRead;
  
-	void read(byte[] out, int off, int len, long timeoutMs) {
-		synchronized (lock) {
-			long deadline = System.currentTimeMillis() + timeoutMs;
-			while (available < len && !finished) {
-				long remaining = deadline - System.currentTimeMillis();
-				if (remaining <= 0) {
-					break;
-				}
-				try {
-					lock.wait(remaining);
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					break;
-				}
-			}
+	        for (int i = toRead; i < len; i++) {
+	            out[off + i] = 0;
+	        }
 
-			int toRead = Math.min(available, len);
-			for (int i = 0; i < toRead; i++) {
-				out[off + i] = buffer[readPos];
-				readPos = (readPos + 1) % buffer.length;
-			}
-			available -= toRead;
-			for (int i = toRead; i < len; i++) {
-				out[off + i] = 0;
-			}
-			lock.notifyAll();
-		}
+	        lock.notifyAll();
+
+	        return toRead;
+	    }
 	}
 
 	void markFinished() {

@@ -37,24 +37,24 @@ public class ScreenRecorder {
 	private static final int AUDIO_STREAM_INDEX = 1;
 	private static final int AUDIO_BUFFER_BYTES = 4096;
 	private static final int RING_BUFFER_SECONDS = 5;
-	private static final long MIX_STALL_TIMEOUT_MS = 200;
-	private static final int MIX_CHUNK_FRAMES = 1024;
+	private static final long MIX_STALL_TIMEOUT_MS = 40; 
+	private static final int MIN_MIX_FRAMES = 256;
+	private static final int MAX_MIX_FRAMES = AUDIO_SAMPLE_RATE;
 
 	private final Rectangle captureArea;
 	private final String outputFileName;
 	private MainFrame mainFrame;
-
 	private volatile boolean isRecording;
 	private volatile boolean isPaused;
-	private final Object pauseLock = new Object();
 
+	private final Object pauseLock = new Object();
 	private final Object writerLock = new Object();
 
 	private volatile boolean isMicrophoneEnabled = false;
 	private volatile boolean isSpeakerEnabled = true;
 
 	private static volatile int TARGET_FPS = 50;
-
+ 
 	private volatile long startTime;
 	private final AtomicLong totalPausedTime = new AtomicLong(0);
 	private volatile long pauseStartedAt = 0;
@@ -89,10 +89,6 @@ public class ScreenRecorder {
 		if (!saveDir.exists()) {
 			saveDir.mkdirs();
 		}
-
-		// LOOPBACK taps the default playback (render) device so we capture
-		// what's coming out of the speakers. Mode.CAPTURE would instead open
-		// a second microphone-style input, which is not "system audio".
 		this.systemAudioSource = new WasapiAudioSource(WasapiAudioSource.Mode.LOOPBACK);
 
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
@@ -127,14 +123,17 @@ public class ScreenRecorder {
 	}
 
 	public void start() {
-		System.out.println("mic=" + isMicrophoneEnabled + " speaker=" + isSpeakerEnabled
-				+ " audioStreamAdded=" + audioStreamAdded);
+		System.out.println("mic=" + isMicrophoneEnabled + " speaker=" + isSpeakerEnabled + " audioStreamAdded="
+				+ audioStreamAdded);
 		if (isRecording)
 			return;
 		isRecording = true;
 		isPaused = false;
 		framesEncoded.set(0);
 		totalPausedTime.set(0);
+//		lastAudioPtsNanos.set(-1);
+ 
+		startTime = System.nanoTime();
 
 		try {
 			writer = ToolFactory.makeWriter(outputFileName);
@@ -215,8 +214,7 @@ public class ScreenRecorder {
 	private void recordScreen() {
 		try {
 			Robot robot = new Robot();
-
-			startTime = System.nanoTime();
+ 
 			captureStarted.countDown();
 
 			while (isRecording) {
@@ -280,36 +278,32 @@ public class ScreenRecorder {
 		}
 	}
 
-	// ---------------------------------------------------------------
-	// Audio: two dedicated capture threads (mic + system) feed ring
-	// buffers; this method runs on the mixer thread, draining both
-	// buffers, mixing, and encoding into the writer.
-	// ---------------------------------------------------------------
-
 	private void recordAudio() {
-		int bytesPerSample = 2; // 16-bit mono
+		int bytesPerSample = 2;
 		int ringCapacity = AUDIO_SAMPLE_RATE * bytesPerSample * RING_BUFFER_SECONDS;
 
 		if (isMicrophoneEnabled) {
 			micRing = new CircularByteBuffer(ringCapacity);
-			micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture");
-			micCaptureThread.setPriority(Thread.MAX_PRIORITY);
+			micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture"); 
+			micCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
 			micCaptureThread.start();
 		}
 
 		if (isSpeakerEnabled && systemAudioSource != null) {
 			systemRing = new CircularByteBuffer(ringCapacity);
 			systemCaptureThread = new Thread(this::captureSystemAudio, "Screen Recorder - System Audio Capture");
-			systemCaptureThread.setPriority(Thread.MAX_PRIORITY);
+			systemCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
 			systemCaptureThread.start();
 		}
 
 		System.out.println("mic ring bytes: " + (micRing != null) + ", sys ring bytes: " + (systemRing != null));
 
-		long totalAudioSamplesWritten = 0;
-		int chunkBytes = MIX_CHUNK_FRAMES * bytesPerSample;
-		byte[] micChunk = micRing != null ? new byte[chunkBytes] : null;
-		byte[] sysChunk = systemRing != null ? new byte[chunkBytes] : null;
+		int maxChunkBytes = MAX_MIX_FRAMES * bytesPerSample;
+		byte[] micChunk = micRing != null ? new byte[maxChunkBytes] : null;
+		byte[] sysChunk = systemRing != null ? new byte[maxChunkBytes] : null;
+
+		 
+		long audioClockNanos = currentTimestampNanos();
 
 		try {
 			while (isRecording) {
@@ -318,16 +312,34 @@ public class ScreenRecorder {
 					break;
 				}
 
+				long nowNanos = currentTimestampNanos();
+				long elapsedNanos = nowNanos - audioClockNanos;
+				int framesNeeded = (int) (elapsedNanos * AUDIO_SAMPLE_RATE / 1_000_000_000L);
+
+				if (framesNeeded < MIN_MIX_FRAMES) { 
+					Thread.sleep(3);
+					continue;
+				}
+				framesNeeded = Math.min(framesNeeded, MAX_MIX_FRAMES);
+
+				int chunkBytes = framesNeeded * bytesPerSample;
+
 				short[] micSamples = null;
 				short[] systemSamples = null;
 
 				if (micRing != null) {
-					micRing.read(micChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					int gotMic = micRing.read(micChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					if (gotMic < chunkBytes) {
+						java.util.Arrays.fill(micChunk, Math.max(gotMic, 0), chunkBytes, (byte) 0);
+					}
 					micSamples = bytesToShorts(micChunk, chunkBytes);
 				}
 
 				if (systemRing != null) {
-					systemRing.read(sysChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					int gotSys = systemRing.read(sysChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+					if (gotSys < chunkBytes) {
+						java.util.Arrays.fill(sysChunk, Math.max(gotSys, 0), chunkBytes, (byte) 0);
+					}
 					systemSamples = bytesToShorts(sysChunk, chunkBytes);
 				}
 
@@ -341,15 +353,14 @@ public class ScreenRecorder {
 				}
 
 				if (outSamples != null && outSamples.length > 0) {
-					// Sample-accurate timestamp derived from total samples written so far
-					long sampleTimestampNanos = (totalAudioSamplesWritten * 1_000_000_000L) / AUDIO_SAMPLE_RATE;
+					long pts = audioClockNanos;
 
 					synchronized (writerLock) {
-						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, sampleTimestampNanos, TimeUnit.NANOSECONDS);
+						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, pts, TimeUnit.NANOSECONDS);
 					}
-
-					totalAudioSamplesWritten += outSamples.length;
 				}
+ 
+				audioClockNanos += (framesNeeded * 1_000_000_000L) / AUDIO_SAMPLE_RATE;
 			}
 		} catch (Exception e) {
 			System.err.println("Error during audio mixing: " + e.getMessage());
@@ -408,9 +419,6 @@ public class ScreenRecorder {
 	}
 
 	private void captureSystemAudio() {
-		// WASAPI (via JNA) requires COM to be initialized on the thread that
-		// actually pumps the audio client, otherwise capture can silently
-		// fail or behave inconsistently.
 		HRESULT hr = null;
 		boolean comInitialized = false;
 		try {
@@ -462,7 +470,6 @@ public class ScreenRecorder {
 				return fmt;
 			}
 		} catch (NoSuchMethodException ignored) {
-			// Source doesn't expose its format; assume it already matches target.
 			System.out.println("WARNING: SystemAudioSource does not expose getCaptureFormat(). "
 					+ "Assuming captured audio is already mono/" + AUDIO_SAMPLE_RATE + "Hz/16-bit. "
 					+ "If recordings run long, this assumption is likely wrong - "
@@ -485,7 +492,6 @@ public class ScreenRecorder {
 
 		short[] rawShorts;
 
-		// Convert 32-bit Float (Standard for WASAPI Shared Mode) to 16-bit Short PCM
 		if (encoding == AudioFormat.Encoding.PCM_FLOAT || sampleSizeInBits == 32) {
 			int floatCount = length / 4;
 			rawShorts = new short[floatCount];
@@ -493,19 +499,14 @@ public class ScreenRecorder {
 				int intBits = (raw[i * 4] & 0xFF) | ((raw[i * 4 + 1] & 0xFF) << 8) | ((raw[i * 4 + 2] & 0xFF) << 16)
 						| ((raw[i * 4 + 3] & 0xFF) << 24);
 				float floatVal = Float.intBitsToFloat(intBits);
-				// Clamp float sample [-1.0f, 1.0f] to 16-bit signed integer range
 				floatVal = Math.max(-1.0f, Math.min(1.0f, floatVal));
 				rawShorts[i] = (short) (floatVal * 32767.0f);
 			}
 		} else {
-			// Standard PCM 16-bit
 			rawShorts = bytesToShorts(raw, length);
 		}
 
-		// Downmix multi-channel audio to mono
 		short[] mono = (srcChannels <= 1) ? rawShorts : downmixToMono(rawShorts, srcChannels);
-
-		// Resample if native rate differs from target rate (e.g., 48000Hz -> 44100Hz)
 		if (Math.abs(srcRate - AUDIO_SAMPLE_RATE) < 1.0f) {
 			return mono;
 		}
@@ -513,7 +514,6 @@ public class ScreenRecorder {
 		return resampleLinear(mono, srcRate, AUDIO_SAMPLE_RATE);
 	}
 
-	/** Averages interleaved channel samples down to mono. */
 	private short[] downmixToMono(short[] interleaved, int channels) {
 		int frames = interleaved.length / channels;
 		short[] mono = new short[frames];
@@ -527,10 +527,6 @@ public class ScreenRecorder {
 		return mono;
 	}
 
-	/**
-	 * Simple linear-interpolation resampler. Good enough for speech/system audio,
-	 * not audiophile grade.
-	 */
 	private short[] resampleLinear(short[] input, float srcRate, float dstRate) {
 		if (input.length == 0) {
 			return input;
@@ -608,60 +604,50 @@ public class ScreenRecorder {
 	}
 
 	private void finalizeWhenDone() {
-	    try {
-	        if (videoThread != null) {
-	            videoThread.join();
-	        }
+		try {
+			if (videoThread != null) {
+				videoThread.join();
+			}
 
-	        if (audioThread != null) {
-	            audioThread.join();
-	        }
-	    } catch (InterruptedException e) {
-	        Thread.currentThread().interrupt();
-	    }
+			if (audioThread != null) {
+				audioThread.join();
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 
-	    try {
-	        if (writer != null) {
-	            if (framesEncoded.get() > 0) {
-	                writer.close();
-	            } else {
-	                System.err.println("No frames were recorded; skipping writer.close()");
-	            }
-	        }
-	    } catch (Exception e) {
-	        System.err.println("Failed to finalize video trailer: " + e.getMessage());
-	        e.printStackTrace();
-	    }
+		try {
+			if (writer != null) {
+				if (framesEncoded.get() > 0) {
+					writer.close();
+				} else {
+					System.err.println("No frames were recorded; skipping writer.close()");
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Failed to finalize video trailer: " + e.getMessage());
+			e.printStackTrace();
+		}
 
-	    NotificationUtil.notify(
-	        "Video saved",
-	        outputFileName,
-	        new File(outputFileName),
-	        () -> System.out.println("clicked")
-	    );
+		NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName),
+				() -> System.out.println("clicked"));
 
-	    
-	    if (mainFrame != null) {
-	        javax.swing.SwingUtilities.invokeLater(() -> {
-	            try {
-	                javafx.application.Platform.runLater(() -> {
-	                    try {
-	                        mainFrame.setVideoPanel(outputFileName);
-	                    } catch (Exception e) {
-	                        System.err.println(
-	                            "Failed to load video preview panel: " + e.getMessage()
-	                        );
-	                        e.printStackTrace();
-	                    }
-	                });
-	            } catch (IllegalStateException e) {
-	                System.err.println(
-	                    "JavaFX toolkit is not initialized: " + e.getMessage()
-	                );
-	            }
-	        }); 
-	    }
-	} 
-	
-	 
+		if (mainFrame != null) {
+			javax.swing.SwingUtilities.invokeLater(() -> {
+				try {
+					javafx.application.Platform.runLater(() -> {
+						try {
+							mainFrame.setVideoPanel(outputFileName);
+						} catch (Exception e) {
+							System.err.println("Failed to load video preview panel: " + e.getMessage());
+							e.printStackTrace();
+						}
+					});
+				} catch (IllegalStateException e) {
+					System.err.println("JavaFX toolkit is not initialized: " + e.getMessage());
+				}
+			});
+		}
+	}
+
 }

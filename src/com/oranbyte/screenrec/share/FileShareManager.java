@@ -12,7 +12,6 @@ public class FileShareManager {
 	private volatile boolean started;
 
 	public FileShareManager(FileShareProvider provider) {
-
 		this.provider = Objects.requireNonNull(provider, "provider");
 	}
 

@@ -13,29 +13,20 @@ import com.oranbyte.screenrec.share.TransferListener;
 public class LocalSendProvider implements FileShareProvider {
 
 	private final LocalSendDiscovery discovery;
-
 	private final LocalSendServer server;
-
 	private final LocalSendClient client;
-
 	private final ExecutorService executor;
-
 	private volatile boolean running;
 
 	public LocalSendProvider() {
 
 		discovery = new LocalSendDiscovery(LocalSendProtocol.DEFAULT_PORT);
-
 		server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT);
-
 		client = new LocalSendClient();
-
+		
 		executor = Executors.newCachedThreadPool(runnable -> {
-
 			Thread thread = new Thread(runnable, "LocalSend-Worker");
-
 			thread.setDaemon(true);
-
 			return thread;
 		});
 	}
@@ -48,15 +39,8 @@ public class LocalSendProvider implements FileShareProvider {
 		}
 
 		try {
-
-			/*
-			 * Start the HTTPS receiver first.
-			 */
+ 
 			server.start();
-
-			/*
-			 * Then start UDP discovery.
-			 */
 			discovery.start();
 
 			running = true;
@@ -82,11 +66,8 @@ public class LocalSendProvider implements FileShareProvider {
 		}
 
 		discovery.stop();
-
 		server.stop();
-
 		executor.shutdownNow();
-
 		running = false;
 
 		System.out.println("LocalSend provider stopped.");
@@ -106,30 +87,22 @@ public class LocalSendProvider implements FileShareProvider {
 	public void send(File file, ShareDevice device, TransferListener listener) {
 
 		if (!running) {
-
 			throw new IllegalStateException("LocalSend provider is not running.");
 		}
 
 		if (file == null) {
-
 			throw new IllegalArgumentException("File cannot be null.");
 		}
 
 		if (!(device instanceof LocalSendDevice localDevice)) {
-
 			throw new IllegalArgumentException("Device is not a LocalSend device.");
 		}
 
 		executor.submit(() -> {
-
 			try {
-
 				LocalSendFile localFile = new LocalSendFile(file);
-
 				client.send(localDevice, localFile, listener);
-
 			} catch (Exception e) {
-
 				listener.onFailed(e);
 			}
 		});
@@ -137,7 +110,6 @@ public class LocalSendProvider implements FileShareProvider {
 
 	@Override
 	public void cancel() {
-
 		client.cancelCurrentTransfer();
 	}
 
@@ -146,12 +118,10 @@ public class LocalSendProvider implements FileShareProvider {
 	}
 
 	public LocalSendDiscovery getDiscovery() {
-
 		return discovery;
 	}
 
 	public LocalSendServer getServer() {
-
 		return server;
 	}
 }

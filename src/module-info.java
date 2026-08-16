@@ -12,7 +12,7 @@ module ScreenRecorder {
 	requires org.json;
 	requires java.net.http;
 	requires jdk.httpserver;
-
+	
 	requires javafx.controls;
 	requires javafx.graphics;
 	requires javafx.media;

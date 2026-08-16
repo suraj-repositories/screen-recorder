@@ -86,10 +86,7 @@ public class ShareDialog extends JDialog {
 
         add(root, BorderLayout.CENTER);
     }
-
-    // ------------------------------------------------------------------
-    // File card
-    // ------------------------------------------------------------------
+ 
     private void addFileCard(JPanel root) {
         RoundedPanel card = new RoundedPanel(14);
         card.setLayout(new BorderLayout(14, 0));
@@ -156,11 +153,8 @@ public class ShareDialog extends JDialog {
         card.add(actionPanel, BorderLayout.EAST);
 
         root.add(card);
-    }
-
-    // ------------------------------------------------------------------
-    // Nearby / System Share (the important one)
-    // ------------------------------------------------------------------
+    } 
+    
     private void addNearbyShareButton(JPanel root) {
         String os = System.getProperty("os.name", "").toLowerCase();
         String label;
@@ -191,8 +185,7 @@ public class ShareDialog extends JDialog {
 
         try {
             if (os.contains("win")) {
-            	System.out.println("shareing...");
-                // Try the modern Windows Share sheet via Shell COM
+            	System.out.println("shareing..."); 
                 String parent = file.getParentFile().getAbsolutePath().replace("'", "''");
                 String name   = file.getName().replace("'", "''");
 
@@ -209,10 +202,8 @@ public class ShareDialog extends JDialog {
                 pb.start();
 
             } else if (os.contains("mac")) {
-                // Reveal in Finder + try to trigger share
                 new ProcessBuilder("open", "-R", file.getAbsolutePath()).start();
 
-                // AppleScript share (works on recent macOS)
                 String script =
                     "tell application \"Finder\"\n" +
                     "  activate\n" +
@@ -222,7 +213,6 @@ public class ShareDialog extends JDialog {
                 new ProcessBuilder("osascript", "-e", script).start();
 
             } else {
-                // Linux – try KDE Connect first, otherwise just open the folder
                 boolean sent = false;
                 try {
                     Process p = new ProcessBuilder(
@@ -236,14 +226,10 @@ public class ShareDialog extends JDialog {
             }
         } catch (Exception ex) {
             ex.printStackTrace();
-            // fallback
             handleDesktopShare(null);
         }
     }
 
-    // ------------------------------------------------------------------
-    // Social buttons
-    // ------------------------------------------------------------------
     private void addShareButtons(JPanel root) {
         JPanel grid = new JPanel(new GridLayout(2, 2, 12, 12));
         grid.setOpaque(false);
@@ -271,7 +257,6 @@ public class ShareDialog extends JDialog {
     private void shareToPlatform(String platform) {
         if (file == null) return;
 
-        // 1. Always copy the real file so the user can paste it into the chat
         handleCopyFile(copyBtn);
 
         try {
@@ -285,12 +270,11 @@ public class ShareDialog extends JDialog {
                                    + "&text=" + encodeForUrl(label);
                 case "twitter"  -> "https://twitter.com/intent/tweet?text=" + encodeForUrl(message);
                 case "email"    -> {
-                    // Prefer Desktop.mail when available
                     if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.MAIL)) {
                         try {
                             Desktop.getDesktop().mail(new URI("mailto:?subject=" + encodeForUrl(label)
                                     + "&body=" + encodeForUrl(message + "\n\nPath: " + path)));
-                            yield null; // already handled
+                            yield null;  
                         } catch (Exception ignored) {}
                     }
                     yield "mailto:?subject=" + encodeForUrl(label)
@@ -306,10 +290,7 @@ public class ShareDialog extends JDialog {
             e.printStackTrace();
         }
     }
-
-    // ------------------------------------------------------------------
-    // Bottom actions
-    // ------------------------------------------------------------------
+ 
     private void addActions(JPanel root) {
         ToolbarButton openFile = createActionButton("Open File");
         openFile.addActionListener(e -> {
@@ -342,9 +323,6 @@ public class ShareDialog extends JDialog {
         return button;
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
     private void handleCopyPath(JButton button) {
         if (file == null) return;
         Toolkit.getDefaultToolkit().getSystemClipboard()
@@ -441,9 +419,6 @@ public class ShareDialog extends JDialog {
         return new ImageIcon(image);
     }
 
-    // ------------------------------------------------------------------
-    // Rounded panel
-    // ------------------------------------------------------------------
     private static class RoundedPanel extends JPanel {
         private static final long serialVersionUID = 1L;
         private final int radius;

@@ -23,9 +23,7 @@ public class LocalSendDiscovery {
 	private final int port;
 
 	private final Map<String, LocalSendDevice> devices = new ConcurrentHashMap<>();
-
 	private final List<MulticastSocket> sockets = new ArrayList<>();
-
 	private volatile boolean running;
 
 	public LocalSendDiscovery() {
@@ -43,20 +41,14 @@ public class LocalSendDiscovery {
 		}
 
 		running = true;
-
 		startMulticastListeners();
-
 		startAnnouncementThread();
 	}
 
 	public synchronized void stop() {
-
 		running = false;
-
 		synchronized (sockets) {
-
 			for (MulticastSocket socket : sockets) {
-
 				try {
 					socket.close();
 				} catch (Exception ignored) {
@@ -70,7 +62,6 @@ public class LocalSendDiscovery {
 	}
 
 	public List<LocalSendDevice> getDevices() {
-
 		return Collections.unmodifiableList(new ArrayList<>(devices.values()));
 	}
 
@@ -81,26 +72,19 @@ public class LocalSendDiscovery {
 			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
 
 			while (interfaces.hasMoreElements()) {
-
 				NetworkInterface networkInterface = interfaces.nextElement();
-
 				if (!isUsableInterface(networkInterface)) {
-
 					continue;
 				}
 
 				try {
-
 					MulticastSocket socket = new MulticastSocket(port);
-
 					socket.setReuseAddress(true);
-
 					socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-
+					
 					InetAddress group = InetAddress.getByName(LocalSendProtocol.MULTICAST_ADDRESS);
-
 					socket.joinGroup(new InetSocketAddress(group, port), networkInterface);
-
+					
 					synchronized (sockets) {
 						sockets.add(socket);
 					}
@@ -112,19 +96,16 @@ public class LocalSendDiscovery {
 					thread.start();
 
 				} catch (Exception e) {
-
 					System.err.println("Unable to listen on " + networkInterface.getName() + ": " + e.getMessage());
 				}
 			}
 
 		} catch (SocketException e) {
-
 			System.err.println("Unable to enumerate network " + "interfaces: " + e.getMessage());
 		}
 	}
 
 	private boolean isUsableInterface(NetworkInterface networkInterface) throws SocketException {
-
 		return networkInterface.isUp() && !networkInterface.isLoopback() && networkInterface.supportsMulticast();
 	}
 
@@ -135,20 +116,13 @@ public class LocalSendDiscovery {
 		while (running && !socket.isClosed()) {
 
 			try {
-
 				DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
 				socket.receive(packet);
-
 				processPacket(packet);
-
 			} catch (IOException e) {
-
 				if (running) {
-
 					System.err.println("Discovery receive error: " + e.getMessage());
 				}
-
 				return;
 			}
 		}
@@ -159,26 +133,19 @@ public class LocalSendDiscovery {
 		try {
 
 			String body = new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8);
-
 			JSONObject json = new JSONObject(body);
-
 			String fingerprint = json.optString("fingerprint", "");
 
 			if (LocalSendIdentity.getFingerprint().equals(fingerprint)) {
-
 				return;
 			}
 
 			boolean announce = json.optBoolean("announce", false);
-
 			String address = packet.getAddress().getHostAddress();
 
 			if (announce) {
-
 				sendMulticastResponse(packet.getAddress());
-
 			} else {
-
 				addDevice(address, json);
 			}
 
@@ -190,9 +157,7 @@ public class LocalSendDiscovery {
 	private void addDevice(String address, JSONObject json) {
 
 		LocalSendDevice device = LocalSendDevice.fromJson(address, json);
-
 		if (!device.getFingerprint().isBlank()) {
-
 			devices.put(device.getFingerprint(), device);
 		}
 	}
@@ -200,25 +165,18 @@ public class LocalSendDiscovery {
 	private void sendMulticastResponse(InetAddress destination) {
 
 		JSONObject json = createDeviceJson();
-
 		json.put("announce", false);
-
 		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
 		try {
-
 			synchronized (sockets) {
-
 				for (MulticastSocket socket : sockets) {
-
 					DatagramPacket packet = new DatagramPacket(data, data.length, destination, port);
-
 					socket.send(packet);
 				}
 			}
 
 		} catch (IOException e) {
-
 			System.err.println("Unable to send discovery response: " + e.getMessage());
 		}
 	}
@@ -226,19 +184,12 @@ public class LocalSendDiscovery {
 	private void startAnnouncementThread() {
 
 		Thread thread = new Thread(() -> {
-
 			while (running) {
-
 				announce();
-
 				try {
-
 					Thread.sleep(5000);
-
 				} catch (InterruptedException e) {
-
 					Thread.currentThread().interrupt();
-
 					return;
 				}
 			}
@@ -249,31 +200,21 @@ public class LocalSendDiscovery {
 	}
 
 	private void announce() {
-
 		JSONObject json = createDeviceJson();
-
 		json.put("announce", true);
-
 		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
 		try {
-
 			InetAddress group = InetAddress.getByName(LocalSendProtocol.MULTICAST_ADDRESS);
 
 			synchronized (sockets) {
-
 				for (MulticastSocket socket : sockets) {
-
 					DatagramPacket packet = new DatagramPacket(data, data.length, group, port);
-
 					socket.send(packet);
 				}
 			}
-
 		} catch (IOException e) {
-
 			if (running) {
-
 				System.err.println("Unable to send LocalSend " + "announcement: " + e.getMessage());
 			}
 		}
@@ -282,21 +223,14 @@ public class LocalSendDiscovery {
 	private JSONObject createDeviceJson() {
 
 		JSONObject json = new JSONObject();
-
+		
 		json.put("alias", LocalSendIdentity.getAlias());
-
 		json.put("version", LocalSendIdentity.getVersion());
-
 		json.put("deviceModel", LocalSendIdentity.getDeviceModel());
-
 		json.put("deviceType", LocalSendIdentity.getDeviceType());
-
 		json.put("fingerprint", LocalSendIdentity.getFingerprint());
-
 		json.put("port", port);
-
 		json.put("protocol", LocalSendProtocol.PROTOCOL_HTTPS);
-
 		json.put("download", false);
 
 		return json;
