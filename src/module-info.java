@@ -5,6 +5,7 @@
  * 
  */
 module ScreenRecorder {
+	
 	requires java.desktop;
 	requires xuggle.xuggler;
 	requires com.sun.jna;
@@ -12,12 +13,10 @@ module ScreenRecorder {
 	requires org.json;
 	requires java.net.http;
 	requires jdk.httpserver;
-	
 	requires javafx.controls;
 	requires javafx.graphics;
 	requires javafx.media;
 	requires javafx.swing;
-
 	requires org.bouncycastle.provider;
 	requires org.bouncycastle.pkix;
 

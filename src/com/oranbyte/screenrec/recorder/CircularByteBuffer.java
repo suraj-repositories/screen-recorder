@@ -19,33 +19,27 @@ public class CircularByteBuffer {
 	}
 
 	void write(byte[] data, int off, int len) {
-		synchronized (lock) {
-			int written = 0;
-			while (written < len) {
-				while (available == buffer.length && !finished) {
-					try {
-						lock.wait();
-					} catch (InterruptedException e) {
-						Thread.currentThread().interrupt();
-						return;
-					}
-				}
-				if (finished) {
-					return;
-				}
-				int spaceLeft = buffer.length - available;
-				int chunk = Math.min(spaceLeft, len - written);
-				for (int i = 0; i < chunk; i++) {
-					buffer[writePos] = data[off + written + i];
-					writePos = (writePos + 1) % buffer.length;
-				}
-				available += chunk;
-				written += chunk;
-				lock.notifyAll();
-			}
-		}
-	}
- 	
+	    synchronized (lock) {
+	        if (len > buffer.length) {
+	            off += (len - buffer.length);
+	            len = buffer.length;
+	        }
+	        int spaceLeft = buffer.length - available;
+	        if (len > spaceLeft) {
+	            int toEvict = len - spaceLeft;
+	            readPos = (readPos + toEvict) % buffer.length;
+	            available -= toEvict;
+	        }
+	        for (int i = 0; i < len; i++) {
+	            buffer[writePos] = data[off + i];
+	            writePos = (writePos + 1) % buffer.length;
+	        }
+	        available += len;
+	        lock.notifyAll();
+	    }
+	} 
+	
+	
 	int read(byte[] out, int off, int len, long timeoutMs) {
 	    synchronized (lock) {
 	        long deadline = System.currentTimeMillis() + timeoutMs;
@@ -81,6 +75,22 @@ public class CircularByteBuffer {
 	        lock.notifyAll();
 
 	        return toRead;
+	    }
+	}
+	
+	int availableBytes() {
+	    synchronized (lock) {
+	        return available;
+	    }
+	}
+
+	
+	void skip(int n) {
+	    synchronized (lock) {
+	        int toSkip = Math.min(n, available);
+	        readPos = (readPos + toSkip) % buffer.length;
+	        available -= toSkip;
+	        lock.notifyAll();
 	    }
 	}
 

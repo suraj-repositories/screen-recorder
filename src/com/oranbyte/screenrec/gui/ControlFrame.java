@@ -67,7 +67,7 @@ public class ControlFrame extends JWindow {
 	private ToolbarButton micToggleButton;
 	private ToolbarButton speakerToggleButton;
 	private ToolbarButton closeButton;
-	private ToolbarButton dropperButton;
+//	private ToolbarButton dropperButton;
 	private final int CONTROL_PADDING = 5;
 
 	private RecordingState state = RecordingState.IDLE;
@@ -213,15 +213,15 @@ public class ControlFrame extends JWindow {
 			}
 		});
 
-		dropperButton = new ToolbarButton(Icons.DROPPER);
-		dropperButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
-		dropperButton.setHorizontalAlignment(SwingConstants.CENTER); 
+//		dropperButton = new ToolbarButton(Icons.DROPPER);
+//		dropperButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
+//		dropperButton.setHorizontalAlignment(SwingConstants.CENTER); 
 		
 		modeControlsPanel.add(recordingModeSwitch);
 		modeControlsPanel.add(Box.createHorizontalStrut(12));
 		modeControlsPanel.add(captureModeComboBox);
-		modeControlsPanel.add(Box.createHorizontalStrut(12));
-		modeControlsPanel.add(dropperButton);
+//		modeControlsPanel.add(Box.createHorizontalStrut(12));
+//		modeControlsPanel.add(dropperButton);
 	}
 
 	private void buildRecordingControlsPanel() {

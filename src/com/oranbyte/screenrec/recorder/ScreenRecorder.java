@@ -77,6 +77,7 @@ public class ScreenRecorder {
 
 	private final AtomicInteger framesEncoded = new AtomicInteger(0);
 	private final CountDownLatch captureStarted = new CountDownLatch(1);
+	private final StreamingResampler systemResampler = new StreamingResampler();
 
 	public ScreenRecorder(Rectangle captureArea) {
 
@@ -174,11 +175,20 @@ public class ScreenRecorder {
 		resume();
 	}
 
+//	public void pause() {
+//		if (isRecording && !isPaused) {
+//			isPaused = true;
+//			pauseStartedAt = System.nanoTime();
+//		}
+//	}
+	
 	public void pause() {
-		if (isRecording && !isPaused) {
-			isPaused = true;
-			pauseStartedAt = System.nanoTime();
-		}
+	    synchronized (pauseLock) {
+	        if (isRecording && !isPaused) {
+	            isPaused = true;
+	            pauseStartedAt = System.nanoTime();
+	        }
+	    }
 	}
 
 	public void resume() {
@@ -324,6 +334,14 @@ public class ScreenRecorder {
 
 				int chunkBytes = framesNeeded * bytesPerSample;
 
+				int maxBacklogBytes = AUDIO_SAMPLE_RATE * bytesPerSample;
+			    if (micRing != null && micRing.availableBytes() > maxBacklogBytes) {
+			        micRing.skip(micRing.availableBytes() - maxBacklogBytes);
+			    }
+			    if (systemRing != null && systemRing.availableBytes() > maxBacklogBytes) {
+			        systemRing.skip(systemRing.availableBytes() - maxBacklogBytes);
+			    }
+				
 				short[] micSamples = null;
 				short[] systemSamples = null;
 
@@ -508,10 +526,9 @@ public class ScreenRecorder {
 
 		short[] mono = (srcChannels <= 1) ? rawShorts : downmixToMono(rawShorts, srcChannels);
 		if (Math.abs(srcRate - AUDIO_SAMPLE_RATE) < 1.0f) {
-			return mono;
+		    return mono;
 		}
-
-		return resampleLinear(mono, srcRate, AUDIO_SAMPLE_RATE);
+		return systemResampler.process(mono, srcRate, AUDIO_SAMPLE_RATE);
 	}
 
 	private short[] downmixToMono(short[] interleaved, int channels) {
@@ -648,6 +665,40 @@ public class ScreenRecorder {
 				}
 			});
 		}
+	}
+	
+	private static class StreamingResampler {
+	    private double pos = 0.0;
+	    private short[] pending = new short[0];
+
+	    short[] process(short[] input, float srcRate, float dstRate) {
+	        if (input.length == 0) return new short[0];
+
+	        short[] buf = new short[pending.length + input.length];
+	        System.arraycopy(pending, 0, buf, 0, pending.length);
+	        System.arraycopy(input, 0, buf, pending.length, input.length);
+
+	        double ratio = dstRate / srcRate;
+	        java.util.List<Short> outList = new java.util.ArrayList<>();
+
+	        while (true) {
+	            int idx0 = (int) Math.floor(pos);
+	            int idx1 = idx0 + 1;
+	            if (idx1 >= buf.length) break;  
+	            double frac = pos - idx0;
+	            short sample = (short) Math.round(buf[idx0] * (1.0 - frac) + buf[idx1] * frac);
+	            outList.add(sample);
+	            pos += 1.0 / ratio;
+	        }
+
+	        int consumedWhole = Math.min((int) Math.floor(pos), buf.length - 1);
+	        pos -= consumedWhole;
+	        pending = java.util.Arrays.copyOfRange(buf, consumedWhole, buf.length);
+
+	        short[] out = new short[outList.size()];
+	        for (int i = 0; i < out.length; i++) out[i] = outList.get(i);
+	        return out;
+	    }
 	}
 
 }
