@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
-import javax.swing.JPanel; 
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
@@ -171,12 +171,12 @@ public class VideoPlayerPanel extends JPanel {
 			});
 		});
 
-		elapsedTimeLabel = new JLabel("00:00");
+		elapsedTimeLabel = new JLabel("00:00:00");
 		elapsedTimeLabel.setForeground(Color.WHITE);
 		elapsedTimeLabel.setFont(AppConstant.APP_FONT.deriveFont(13f));
 		elapsedTimeLabel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 4, 0, 8));
 
-		remainingTimeLabel = new JLabel("00:00");
+		remainingTimeLabel = new JLabel("00:00:00");
 		remainingTimeLabel.setForeground(Color.WHITE);
 		remainingTimeLabel.setFont(AppConstant.APP_FONT.deriveFont(13f));
 		remainingTimeLabel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 8, 0, 4));
@@ -352,7 +352,6 @@ public class VideoPlayerPanel extends JPanel {
 			}
 
 			try {
-				// reset stale duration from any previous video
 				SwingUtilities.invokeLater(() -> progressSlider.setTotalSeconds(0));
 
 				Media media = new Media(file.toURI().toASCIIString());
@@ -368,7 +367,7 @@ public class VideoPlayerPanel extends JPanel {
 					SwingUtilities.invokeLater(() -> {
 						playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
 						progressSlider.setValue(0);
-						elapsedTimeLabel.setText("00:00");
+						elapsedTimeLabel.setText("00:00:00");
 
 						Duration total = mediaPlayer.getTotalDuration();
 						if (!total.isUnknown()) {
@@ -411,7 +410,7 @@ public class VideoPlayerPanel extends JPanel {
 							remainingTimeLabel.setText(formatTime(total));
 							progressSlider.setTotalSeconds(total.toSeconds());
 						}
- 
+
 						updateProgress();
 					});
 				});
@@ -446,10 +445,13 @@ public class VideoPlayerPanel extends JPanel {
 	}
 
 	private String formatTime(Duration duration) {
-		int seconds = (int) duration.toSeconds();
-		int min = seconds / 60;
-		int sec = seconds % 60;
-		return String.format("%02d:%02d", min, sec);
+		long totalSeconds = (long) duration.toSeconds();
+
+		long hours = totalSeconds / 3600;
+		long minutes = (totalSeconds % 3600) / 60;
+		long seconds = totalSeconds % 60;
+
+		return String.format("%02d:%02d:%02d", hours, minutes, seconds);
 	}
 
 	public int getControlsTargetY() {

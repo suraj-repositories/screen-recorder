@@ -335,12 +335,11 @@ public class ScreenRecorder {
 					if (gotSys < chunkBytes) {
 						java.util.Arrays.fill(sysChunk, Math.max(gotSys, 0), chunkBytes, (byte) 0);
 					}
-
-					// Evaluate isSpeakerEnabled dynamically per-chunk
+ 
 					if (isSpeakerEnabled) {
 						systemSamples = bytesToShorts(sysChunk, chunkBytes);
 					} else {
-						systemSamples = new short[framesNeeded]; // Mute with silence
+						systemSamples = new short[framesNeeded];  
 					}
 				}
 
