@@ -16,8 +16,7 @@ import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
-import javax.swing.JPanel;
-import javax.swing.JSlider;
+import javax.swing.JPanel; 
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 
@@ -60,7 +59,7 @@ public class VideoPlayerPanel extends JPanel {
 	private ToolbarButton playPauseButton;
 	private ToolbarButton volumeButton;
 
-	private JSlider progressSlider;
+	private VideoProgressSlider progressSlider;
 
 	private JLabel elapsedTimeLabel;
 	private JLabel remainingTimeLabel;
@@ -188,14 +187,17 @@ public class VideoPlayerPanel extends JPanel {
 			if (mediaPlayer == null)
 				return;
 
-			if (progressSlider.getValueIsAdjusting()) {
+			if (!progressSlider.getValueIsAdjusting())
+				return;
 
-				Platform.runLater(() -> {
-					Duration total = mediaPlayer.getTotalDuration();
-					double seconds = total.toSeconds() * progressSlider.getValue() / 100.0;
-					mediaPlayer.seek(Duration.seconds(seconds));
-				});
-			}
+			Duration total = mediaPlayer.getTotalDuration();
+			if (total == null || total.isUnknown() || total.isIndefinite())
+				return;
+
+			double percent = progressSlider.getValue() / 100.0;
+			double targetSeconds = total.toSeconds() * percent;
+
+			Platform.runLater(() -> mediaPlayer.seek(Duration.seconds(targetSeconds)));
 		});
 
 		JPanel timelinePanel = new JPanel(new BorderLayout(8, 0));
@@ -343,79 +345,104 @@ public class VideoPlayerPanel extends JPanel {
 
 		Platform.runLater(() -> {
 
-			Media media = new Media(file.toURI().toString());
+			if (mediaPlayer != null) {
+				mediaPlayer.stop();
+				mediaPlayer.dispose();
+				mediaPlayer = null;
+			}
 
-			mediaPlayer = new MediaPlayer(media);
+			try {
+				// reset stale duration from any previous video
+				SwingUtilities.invokeLater(() -> progressSlider.setTotalSeconds(0));
 
-			MediaView mediaView = new MediaView(mediaPlayer);
-			mediaView.setPreserveRatio(true);
+				Media media = new Media(file.toURI().toASCIIString());
+				mediaPlayer = new MediaPlayer(media);
 
-			StackPane root = new StackPane(mediaView);
+				MediaView mediaView = new MediaView(mediaPlayer);
+				mediaView.setPreserveRatio(true);
 
-			fxPanel.addComponentListener(new ComponentAdapter() {
-				@Override
-				public void componentResized(ComponentEvent e) {
+				mediaPlayer.setOnEndOfMedia(() -> {
+					mediaPlayer.seek(Duration.ZERO);
+					mediaPlayer.pause();
 
-					double width = fxPanel.getWidth();
-					double height = fxPanel.getHeight();
+					SwingUtilities.invokeLater(() -> {
+						playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
+						progressSlider.setValue(0);
+						elapsedTimeLabel.setText("00:00");
 
-					Platform.runLater(() -> {
-						mediaView.setFitWidth(width);
-						mediaView.setFitHeight(height);
+						Duration total = mediaPlayer.getTotalDuration();
+						if (!total.isUnknown()) {
+							remainingTimeLabel.setText(formatTime(total));
+						}
 					});
-				}
-			});
+				});
 
-			fxPanel.setScene(new Scene(root));
+				StackPane root = new StackPane(mediaView);
 
-			mediaPlayer.setOnReady(() -> {
+				fxPanel.addComponentListener(new ComponentAdapter() {
+					@Override
+					public void componentResized(ComponentEvent e) {
 
-				Dimension size = new Dimension((int) media.getWidth(), (int) media.getHeight());
+						double width = fxPanel.getWidth();
+						double height = fxPanel.getHeight();
 
-				SwingUtilities.invokeLater(() -> {
-					if (onVideoReady != null) {
-						onVideoReady.accept(size);
+						Platform.runLater(() -> {
+							mediaView.setFitWidth(width);
+							mediaView.setFitHeight(height);
+						});
 					}
 				});
 
-				if (mediaPlayer != null) {
+				fxPanel.setScene(new Scene(root));
+
+				mediaPlayer.setOnReady(() -> {
+
+					Dimension size = new Dimension((int) media.getWidth(), (int) media.getHeight());
 					Duration total = mediaPlayer.getTotalDuration();
 
-					if (total.isUnknown())
-						return;
+					SwingUtilities.invokeLater(() -> {
+						if (onVideoReady != null) {
+							onVideoReady.accept(size);
+						}
 
-					Duration remaining = total.subtract(new Duration(0));
-					remainingTimeLabel.setText(formatTime(remaining));
-				}
+						playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
 
-				SwingUtilities.invokeLater(() -> {
-					playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
-					updateProgress();
+						if (total != null && !total.isUnknown()) {
+							remainingTimeLabel.setText(formatTime(total));
+							progressSlider.setTotalSeconds(total.toSeconds());
+						}
+ 
+						updateProgress();
+					});
 				});
-			});
 
-			mediaPlayer.setOnError(() -> System.out.println(mediaPlayer.getError()));
+				mediaPlayer.setOnError(() -> System.out.println(mediaPlayer.getError()));
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
 		});
 	}
 
 	private void updateProgress() {
-
 		mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
 			Duration total = mediaPlayer.getTotalDuration();
 
-			if (total.isUnknown())
+			if (total == null || total.isUnknown() || total.isIndefinite() || total.toSeconds() <= 0) {
 				return;
-			double progress = newTime.toSeconds() / total.toSeconds() * 100;
+			}
+
+			double progress = (newTime.toSeconds() / total.toSeconds()) * 100;
 			Duration remaining = total.subtract(newTime);
 
 			SwingUtilities.invokeLater(() -> {
-				progressSlider.setValue((int) progress);
+				if (!progressSlider.getValueIsAdjusting()) {
+					progressSlider.setValue((int) progress);
+				}
+
 				elapsedTimeLabel.setText(formatTime(newTime));
 				remainingTimeLabel.setText(formatTime(remaining));
 			});
-
 		});
-
 	}
 
 	private String formatTime(Duration duration) {
@@ -435,6 +462,10 @@ public class VideoPlayerPanel extends JPanel {
 
 	public void open(String src) {
 		this.file = new File(src);
+		if (!file.exists() || file.length() == 0) {
+			System.err.println("File does not exist or is empty: " + src);
+			return;
+		}
 		loadMedia();
 	}
 

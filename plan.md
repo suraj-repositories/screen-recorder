@@ -17,7 +17,7 @@
 3. count-down before starting video recorder -- done
 4. add copy and save buttons after capture area -- done
 5. add images on capture-mode selection -- done
-6. add color picker
+6. add color picker --- decided and dedicated for next update
 7. add selection size on time -- done
 8. fix the video recording : large time issue -- done
 9. update share system :  

@@ -271,9 +271,7 @@ public class ScreenRecorder {
 	private void recordAudio() {
 		int bytesPerSample = 2;
 		int ringCapacity = AUDIO_SAMPLE_RATE * bytesPerSample * RING_BUFFER_SECONDS;
-
-		// Initialize ring buffers and capture threads unconditionally for runtime
-		// toggling
+ 
 		micRing = new CircularByteBuffer(ringCapacity);
 		micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture");
 		micCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
@@ -325,12 +323,11 @@ public class ScreenRecorder {
 				if (gotMic < chunkBytes) {
 					java.util.Arrays.fill(micChunk, Math.max(gotMic, 0), chunkBytes, (byte) 0);
 				}
-
-				// Evaluate isMicrophoneEnabled dynamically per-chunk
+ 
 				if (isMicrophoneEnabled) {
 					micSamples = bytesToShorts(micChunk, chunkBytes);
 				} else {
-					micSamples = new short[framesNeeded]; // Mute with silence
+					micSamples = new short[framesNeeded];  
 				}
 
 				if (systemRing != null) {

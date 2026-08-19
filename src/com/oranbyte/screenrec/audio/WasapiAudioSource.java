@@ -59,11 +59,10 @@ public class WasapiAudioSource implements SystemAudioSource {
 				checkHr(hr, "CoInitializeEx");
 			}
 
-			// Keep WASAPI loopback pump alive when speakers are silent
-//			if (mode == Mode.LOOPBACK) {
-//				silenceGenerator = new WasapiSilenceGenerator();
-//				silenceGenerator.start();
-//			}
+			if (mode == Mode.LOOPBACK) {
+				silenceGenerator = new WasapiSilenceGenerator();
+				silenceGenerator.start();
+			}
 
 			Pointer pEnumerator = createDeviceEnumerator();
 			Pointer pDevice = getDevice(pEnumerator, mode == Mode.LOOPBACK ? 0 : 1);

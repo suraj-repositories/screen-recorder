@@ -129,21 +129,15 @@ public class ControlFrame extends JWindow {
 	private void initializeUI() {
 
 		root = new JPanel() {
-
 			private static final long serialVersionUID = 1L;
 
 			@Override
 			protected void paintComponent(Graphics g) {
-
 				Graphics2D g2 = (Graphics2D) g.create();
-
 				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
 				g2.setColor(AppColors.SURFACE);
 				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-
 				super.paintComponent(g2);
-
 				g2.dispose();
 			}
 		};
@@ -542,7 +536,7 @@ public class ControlFrame extends JWindow {
 
 			setButtonsEnabled(true);
 
-			recorder = new ScreenRecorder(mainFrame, captureArea, false, true);
+			recorder = new ScreenRecorder(mainFrame, captureArea, true, false);
 			recorder.start();
 
 			elapsedSeconds = 0;
