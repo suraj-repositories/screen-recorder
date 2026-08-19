@@ -71,7 +71,7 @@ public class MainFrame extends JFrame {
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BorderLayout());
 
-		setMinimumSize(new Dimension(600, 300));
+		setMinimumSize(new Dimension(680, 350));
 		setSize(600, 300);
 		setLocationRelativeTo(null);
 

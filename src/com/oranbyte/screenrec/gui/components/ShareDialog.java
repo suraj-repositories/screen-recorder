@@ -67,6 +67,7 @@ public class ShareDialog extends JDialog {
         setResizable(false);
         setLocationRelativeTo(getOwner());
         getContentPane().setBackground(BG);
+        setIconImage(Icons.SHARE.icon(32).getImage());
 
         JPanel root = new JPanel();
         root.setLayout(new BoxLayout(root, BoxLayout.Y_AXIS));
@@ -272,8 +273,9 @@ public class ShareDialog extends JDialog {
                 case "email"    -> {
                     if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.MAIL)) {
                         try {
+                        	 
                             Desktop.getDesktop().mail(new URI("mailto:?subject=" + encodeForUrl(label)
-                                    + "&body=" + encodeForUrl(message + "\n\nPath: " + path)));
+                                    + "&body=" + encodeForUrl(message + "\n\nPath: " + path) + "&attachment=C:\\Users\\Shubham\\Desktop\\sql.png" ) );
                             yield null;  
                         } catch (Exception ignored) {}
                     }
@@ -290,7 +292,7 @@ public class ShareDialog extends JDialog {
             e.printStackTrace();
         }
     }
- 
+    
     private void addActions(JPanel root) {
         ToolbarButton openFile = createActionButton("Open File");
         openFile.addActionListener(e -> {

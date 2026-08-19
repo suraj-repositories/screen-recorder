@@ -37,9 +37,9 @@ public class ScreenRecorder {
 	private static final int AUDIO_STREAM_INDEX = 1;
 	private static final int AUDIO_BUFFER_BYTES = 4096;
 	private static final int RING_BUFFER_SECONDS = 5;
-	private static final long MIX_STALL_TIMEOUT_MS = 40; 
+	private static final long MIX_STALL_TIMEOUT_MS = 20;
 	private static final int MIN_MIX_FRAMES = 256;
-	private static final int MAX_MIX_FRAMES = AUDIO_SAMPLE_RATE;
+	private static final int MAX_MIX_FRAMES = 2048;
 
 	private final Rectangle captureArea;
 	private final String outputFileName;
@@ -54,7 +54,7 @@ public class ScreenRecorder {
 	private volatile boolean isSpeakerEnabled = true;
 
 	private static volatile int TARGET_FPS = 50;
- 
+
 	private volatile long startTime;
 	private final AtomicLong totalPausedTime = new AtomicLong(0);
 	private volatile long pauseStartedAt = 0;
@@ -77,10 +77,10 @@ public class ScreenRecorder {
 
 	private final AtomicInteger framesEncoded = new AtomicInteger(0);
 	private final CountDownLatch captureStarted = new CountDownLatch(1);
-	private final StreamingResampler systemResampler = new StreamingResampler();
+
+	private double systemResamplePos = 0.0;
 
 	public ScreenRecorder(Rectangle captureArea) {
-
 		int width = captureArea.width % 2 == 0 ? captureArea.width : captureArea.width - 1;
 		int height = captureArea.height % 2 == 0 ? captureArea.height : captureArea.height - 1;
 
@@ -100,7 +100,6 @@ public class ScreenRecorder {
 
 	public ScreenRecorder(Rectangle captureArea, boolean isMicrophoneEnabled, boolean isSpeakerEnabled) {
 		this(captureArea);
-
 		this.isMicrophoneEnabled = isMicrophoneEnabled;
 		this.isSpeakerEnabled = isSpeakerEnabled;
 	}
@@ -124,28 +123,24 @@ public class ScreenRecorder {
 	}
 
 	public void start() {
-		System.out.println("mic=" + isMicrophoneEnabled + " speaker=" + isSpeakerEnabled + " audioStreamAdded="
-				+ audioStreamAdded);
 		if (isRecording)
 			return;
 		isRecording = true;
 		isPaused = false;
 		framesEncoded.set(0);
 		totalPausedTime.set(0);
-//		lastAudioPtsNanos.set(-1);
- 
+		systemResamplePos = 0.0;
+
 		startTime = System.nanoTime();
 
 		try {
 			writer = ToolFactory.makeWriter(outputFileName);
 			writer.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, captureArea.width, captureArea.height);
 
-			boolean wantsAudio = isMicrophoneEnabled || (isSpeakerEnabled && systemAudioSource != null);
-			if (wantsAudio) {
-				writer.addAudioStream(AUDIO_STREAM_INDEX, AUDIO_STREAM_INDEX, ICodec.ID.CODEC_ID_AAC, AUDIO_CHANNELS,
-						AUDIO_SAMPLE_RATE);
-				audioStreamAdded = true;
-			}
+			// Always attach audio stream to enable dynamic audio toggling mid-session
+			writer.addAudioStream(AUDIO_STREAM_INDEX, AUDIO_STREAM_INDEX, ICodec.ID.CODEC_ID_AAC, AUDIO_CHANNELS,
+					AUDIO_SAMPLE_RATE);
+			audioStreamAdded = true;
 		} catch (Exception e) {
 			System.err.println("Failed to initialize writer: " + e.getMessage());
 			e.printStackTrace();
@@ -175,20 +170,13 @@ public class ScreenRecorder {
 		resume();
 	}
 
-//	public void pause() {
-//		if (isRecording && !isPaused) {
-//			isPaused = true;
-//			pauseStartedAt = System.nanoTime();
-//		}
-//	}
-	
 	public void pause() {
-	    synchronized (pauseLock) {
-	        if (isRecording && !isPaused) {
-	            isPaused = true;
-	            pauseStartedAt = System.nanoTime();
-	        }
-	    }
+		synchronized (pauseLock) {
+			if (isRecording && !isPaused) {
+				isPaused = true;
+				pauseStartedAt = System.nanoTime();
+			}
+		}
 	}
 
 	public void resume() {
@@ -224,29 +212,24 @@ public class ScreenRecorder {
 	private void recordScreen() {
 		try {
 			Robot robot = new Robot();
- 
 			captureStarted.countDown();
 
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording) {
+				if (!isRecording)
 					break;
-				}
 
 				long frameStart = System.currentTimeMillis();
 				long frameIntervalMs = 1000L / TARGET_FPS;
 
 				BufferedImage image = robot.createScreenCapture(captureArea);
-
 				BufferedImage bgrImage = new BufferedImage(image.getWidth(), image.getHeight(),
 						BufferedImage.TYPE_3BYTE_BGR);
 
 				Graphics2D g = bgrImage.createGraphics();
 				g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 				g.drawImage(image, 0, 0, null);
-
 				drawCursor(g);
-
 				g.dispose();
 
 				long frameTimeStamp = currentTimestampNanos();
@@ -271,20 +254,17 @@ public class ScreenRecorder {
 	private void drawCursor(Graphics2D g) {
 		try {
 			CursorUtils.CursorSnapshot snapshot = CursorUtils.capture();
-			if (snapshot == null || snapshot.image == null) {
+			if (snapshot == null || snapshot.image == null)
 				return;
-			}
 
 			int screenX = snapshot.screenX - captureArea.x;
 			int screenY = snapshot.screenY - captureArea.y;
-
 			int drawX = screenX - snapshot.hotspotX;
 			int drawY = screenY - snapshot.hotspotY;
 
 			g.drawImage(snapshot.image, drawX, drawY, null);
 		} catch (Exception e) {
-			// IGNOREING...
-			System.out.println("error : " + e.getMessage());
+			e.printStackTrace();
 		}
 	}
 
@@ -292,65 +272,65 @@ public class ScreenRecorder {
 		int bytesPerSample = 2;
 		int ringCapacity = AUDIO_SAMPLE_RATE * bytesPerSample * RING_BUFFER_SECONDS;
 
-		if (isMicrophoneEnabled) {
-			micRing = new CircularByteBuffer(ringCapacity);
-			micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture"); 
-			micCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
-			micCaptureThread.start();
-		}
+		// Initialize ring buffers and capture threads unconditionally for runtime
+		// toggling
+		micRing = new CircularByteBuffer(ringCapacity);
+		micCaptureThread = new Thread(this::captureMic, "Screen Recorder - Mic Capture");
+		micCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
+		micCaptureThread.start();
 
-		if (isSpeakerEnabled && systemAudioSource != null) {
+		if (systemAudioSource != null) {
 			systemRing = new CircularByteBuffer(ringCapacity);
 			systemCaptureThread = new Thread(this::captureSystemAudio, "Screen Recorder - System Audio Capture");
 			systemCaptureThread.setPriority(Thread.NORM_PRIORITY + 2);
 			systemCaptureThread.start();
 		}
 
-		System.out.println("mic ring bytes: " + (micRing != null) + ", sys ring bytes: " + (systemRing != null));
-
 		int maxChunkBytes = MAX_MIX_FRAMES * bytesPerSample;
-		byte[] micChunk = micRing != null ? new byte[maxChunkBytes] : null;
+		byte[] micChunk = new byte[maxChunkBytes];
 		byte[] sysChunk = systemRing != null ? new byte[maxChunkBytes] : null;
 
-		 
 		long audioClockNanos = currentTimestampNanos();
 
 		try {
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording) {
+				if (!isRecording)
 					break;
-				}
 
 				long nowNanos = currentTimestampNanos();
 				long elapsedNanos = nowNanos - audioClockNanos;
+
 				int framesNeeded = (int) (elapsedNanos * AUDIO_SAMPLE_RATE / 1_000_000_000L);
 
-				if (framesNeeded < MIN_MIX_FRAMES) { 
-					Thread.sleep(3);
+				if (framesNeeded < MIN_MIX_FRAMES) {
+					Thread.sleep(2);
 					continue;
 				}
 				framesNeeded = Math.min(framesNeeded, MAX_MIX_FRAMES);
-
 				int chunkBytes = framesNeeded * bytesPerSample;
 
-				int maxBacklogBytes = AUDIO_SAMPLE_RATE * bytesPerSample;
-			    if (micRing != null && micRing.availableBytes() > maxBacklogBytes) {
-			        micRing.skip(micRing.availableBytes() - maxBacklogBytes);
-			    }
-			    if (systemRing != null && systemRing.availableBytes() > maxBacklogBytes) {
-			        systemRing.skip(systemRing.availableBytes() - maxBacklogBytes);
-			    }
-				
+				int maxBacklogBytes = (AUDIO_SAMPLE_RATE / 2) * bytesPerSample;
+				if (micRing.availableBytes() > maxBacklogBytes) {
+					micRing.skip(micRing.availableBytes() - maxBacklogBytes);
+				}
+				if (systemRing != null && systemRing.availableBytes() > maxBacklogBytes) {
+					systemRing.skip(systemRing.availableBytes() - maxBacklogBytes);
+				}
+
 				short[] micSamples = null;
 				short[] systemSamples = null;
 
-				if (micRing != null) {
-					int gotMic = micRing.read(micChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
-					if (gotMic < chunkBytes) {
-						java.util.Arrays.fill(micChunk, Math.max(gotMic, 0), chunkBytes, (byte) 0);
-					}
+				int gotMic = micRing.read(micChunk, 0, chunkBytes, MIX_STALL_TIMEOUT_MS);
+				if (gotMic < chunkBytes) {
+					java.util.Arrays.fill(micChunk, Math.max(gotMic, 0), chunkBytes, (byte) 0);
+				}
+
+				// Evaluate isMicrophoneEnabled dynamically per-chunk
+				if (isMicrophoneEnabled) {
 					micSamples = bytesToShorts(micChunk, chunkBytes);
+				} else {
+					micSamples = new short[framesNeeded]; // Mute with silence
 				}
 
 				if (systemRing != null) {
@@ -358,7 +338,13 @@ public class ScreenRecorder {
 					if (gotSys < chunkBytes) {
 						java.util.Arrays.fill(sysChunk, Math.max(gotSys, 0), chunkBytes, (byte) 0);
 					}
-					systemSamples = bytesToShorts(sysChunk, chunkBytes);
+
+					// Evaluate isSpeakerEnabled dynamically per-chunk
+					if (isSpeakerEnabled) {
+						systemSamples = bytesToShorts(sysChunk, chunkBytes);
+					} else {
+						systemSamples = new short[framesNeeded]; // Mute with silence
+					}
 				}
 
 				short[] outSamples;
@@ -371,13 +357,11 @@ public class ScreenRecorder {
 				}
 
 				if (outSamples != null && outSamples.length > 0) {
-					long pts = audioClockNanos;
-
 					synchronized (writerLock) {
-						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, pts, TimeUnit.NANOSECONDS);
+						writer.encodeAudio(AUDIO_STREAM_INDEX, outSamples, audioClockNanos, TimeUnit.NANOSECONDS);
 					}
 				}
- 
+
 				audioClockNanos += (framesNeeded * 1_000_000_000L) / AUDIO_SAMPLE_RATE;
 			}
 		} catch (Exception e) {
@@ -385,21 +369,17 @@ public class ScreenRecorder {
 			e.printStackTrace();
 		} finally {
 			try {
-				if (micCaptureThread != null) {
-					micCaptureThread.join(2000);
-				}
-				if (systemCaptureThread != null) {
-					systemCaptureThread.join(2000);
-				}
+				if (micCaptureThread != null)
+					micCaptureThread.join(1000);
+				if (systemCaptureThread != null)
+					systemCaptureThread.join(1000);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 			}
-			if (micRing != null) {
+			if (micRing != null)
 				micRing.markFinished();
-			}
-			if (systemRing != null) {
+			if (systemRing != null)
 				systemRing.markFinished();
-			}
 		}
 	}
 
@@ -410,17 +390,10 @@ public class ScreenRecorder {
 
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording) {
+				if (!isRecording)
 					break;
-				}
 
-				int availableBytes = micLine.available();
-				if (availableBytes <= 0) {
-					Thread.sleep(5);
-					continue;
-				}
-
-				int read = micLine.read(raw, 0, Math.min(availableBytes, raw.length));
+				int read = micLine.read(raw, 0, raw.length);
 				if (read > 0) {
 					micRing.write(raw, 0, read);
 				}
@@ -446,13 +419,12 @@ public class ScreenRecorder {
 			systemAudioSource.start(AUDIO_SAMPLE_RATE, AUDIO_CHANNELS);
 			systemAudioNativeFormat = resolveSystemAudioFormat();
 
-			byte[] raw = new byte[AUDIO_BUFFER_BYTES];
+			byte[] raw = new byte[8192];
 
 			while (isRecording) {
 				awaitResumeIfPaused();
-				if (!isRecording) {
+				if (!isRecording)
 					break;
-				}
 
 				int read = systemAudioSource.read(raw, 0, raw.length);
 				if (read > 0) {
@@ -462,7 +434,7 @@ public class ScreenRecorder {
 						systemRing.write(outBytes, 0, outBytes.length);
 					}
 				} else {
-					Thread.sleep(5);
+					Thread.sleep(2);
 				}
 			}
 		} catch (Exception e) {
@@ -483,19 +455,11 @@ public class ScreenRecorder {
 			java.lang.reflect.Method m = systemAudioSource.getClass().getMethod("getCaptureFormat");
 			Object result = m.invoke(systemAudioSource);
 			if (result instanceof AudioFormat) {
-				AudioFormat fmt = (AudioFormat) result;
-				System.out.println("System audio native format: " + fmt);
-				return fmt;
+				return (AudioFormat) result;
 			}
-		} catch (NoSuchMethodException ignored) {
-			System.out.println("WARNING: SystemAudioSource does not expose getCaptureFormat(). "
-					+ "Assuming captured audio is already mono/" + AUDIO_SAMPLE_RATE + "Hz/16-bit. "
-					+ "If recordings run long, this assumption is likely wrong - "
-					+ "add getCaptureFormat() to WasapiAudioSource.");
-		} catch (Exception e) {
-			System.err.println("Failed to resolve system audio format: " + e.getMessage());
+		} catch (Exception ignored) {
 		}
-		return new AudioFormat(AUDIO_SAMPLE_RATE, 16, AUDIO_CHANNELS, true, false);
+		return new AudioFormat(48000.0f, 16, 2, true, false);
 	}
 
 	private short[] normalizeToTargetFormat(byte[] raw, int length, AudioFormat nativeFormat) {
@@ -503,32 +467,33 @@ public class ScreenRecorder {
 			return new short[0];
 		}
 
-		int srcChannels = nativeFormat.getChannels();
+		int channels = nativeFormat.getChannels();
 		float srcRate = nativeFormat.getSampleRate();
-		AudioFormat.Encoding encoding = nativeFormat.getEncoding();
 		int sampleSizeInBits = nativeFormat.getSampleSizeInBits();
 
-		short[] rawShorts;
+		short[] pcmShorts;
 
-		if (encoding == AudioFormat.Encoding.PCM_FLOAT || sampleSizeInBits == 32) {
-			int floatCount = length / 4;
-			rawShorts = new short[floatCount];
-			for (int i = 0; i < floatCount; i++) {
+		if (nativeFormat.getEncoding() == AudioFormat.Encoding.PCM_FLOAT || sampleSizeInBits == 32) {
+			int sampleCount = length / 4;
+			pcmShorts = new short[sampleCount];
+			for (int i = 0; i < sampleCount; i++) {
 				int intBits = (raw[i * 4] & 0xFF) | ((raw[i * 4 + 1] & 0xFF) << 8) | ((raw[i * 4 + 2] & 0xFF) << 16)
 						| ((raw[i * 4 + 3] & 0xFF) << 24);
-				float floatVal = Float.intBitsToFloat(intBits);
-				floatVal = Math.max(-1.0f, Math.min(1.0f, floatVal));
-				rawShorts[i] = (short) (floatVal * 32767.0f);
+				float f = Float.intBitsToFloat(intBits);
+				f = Math.max(-1.0f, Math.min(1.0f, f));
+				pcmShorts[i] = (short) (f * 32767.0f);
 			}
 		} else {
-			rawShorts = bytesToShorts(raw, length);
+			pcmShorts = bytesToShorts(raw, length);
 		}
 
-		short[] mono = (srcChannels <= 1) ? rawShorts : downmixToMono(rawShorts, srcChannels);
+		short[] mono = (channels <= 1) ? pcmShorts : downmixToMono(pcmShorts, channels);
+
 		if (Math.abs(srcRate - AUDIO_SAMPLE_RATE) < 1.0f) {
-		    return mono;
+			return mono;
 		}
-		return systemResampler.process(mono, srcRate, AUDIO_SAMPLE_RATE);
+
+		return resampleLinearPersistent(mono, srcRate, AUDIO_SAMPLE_RATE);
 	}
 
 	private short[] downmixToMono(short[] interleaved, int channels) {
@@ -544,23 +509,35 @@ public class ScreenRecorder {
 		return mono;
 	}
 
-	private short[] resampleLinear(short[] input, float srcRate, float dstRate) {
-		if (input.length == 0) {
+	private short[] resampleLinearPersistent(short[] input, float srcRate, float dstRate) {
+		if (input.length == 0)
 			return input;
-		}
-		double ratio = dstRate / srcRate;
-		int outLength = Math.max(1, (int) Math.round(input.length * ratio));
-		short[] output = new short[outLength];
 
-		for (int i = 0; i < outLength; i++) {
-			double srcPos = i / ratio;
-			int idx0 = (int) Math.floor(srcPos);
-			int idx1 = Math.min(idx0 + 1, input.length - 1);
-			idx0 = Math.min(idx0, input.length - 1);
-			double frac = srcPos - idx0;
-			output[i] = (short) Math.round(input[idx0] * (1.0 - frac) + input[idx1] * frac);
+		double ratio = srcRate / dstRate;
+		int expectedLength = (int) Math.floor(input.length / ratio);
+		short[] output = new short[expectedLength];
+
+		int outIdx = 0;
+		while (outIdx < expectedLength) {
+			int idx0 = (int) Math.floor(systemResamplePos);
+			int idx1 = idx0 + 1;
+
+			if (idx1 >= input.length)
+				break;
+
+			double frac = systemResamplePos - idx0;
+			output[outIdx++] = (short) Math.round(input[idx0] * (1.0 - frac) + input[idx1] * frac);
+
+			systemResamplePos += ratio;
 		}
-		return output;
+
+		systemResamplePos -= Math.floor(systemResamplePos);
+		if (outIdx == output.length) {
+			return output;
+		}
+		short[] trimmed = new short[outIdx];
+		System.arraycopy(output, 0, trimmed, 0, outIdx);
+		return trimmed;
 	}
 
 	private TargetDataLine openMic() throws Exception {
@@ -572,7 +549,7 @@ public class ScreenRecorder {
 		}
 
 		TargetDataLine line = (TargetDataLine) AudioSystem.getLine(info);
-		line.open(format);
+		line.open(format, AUDIO_BUFFER_BYTES * 4);
 		line.start();
 		return line;
 	}
@@ -601,7 +578,11 @@ public class ScreenRecorder {
 		short[] out = new short[len];
 		for (int i = 0; i < len; i++) {
 			int sum = a[i] + b[i];
-			out[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, sum));
+			if (sum > Short.MAX_VALUE)
+				sum = Short.MAX_VALUE;
+			else if (sum < Short.MIN_VALUE)
+				sum = Short.MIN_VALUE;
+			out[i] = (short) sum;
 		}
 		return out;
 	}
@@ -622,13 +603,10 @@ public class ScreenRecorder {
 
 	private void finalizeWhenDone() {
 		try {
-			if (videoThread != null) {
+			if (videoThread != null)
 				videoThread.join();
-			}
-
-			if (audioThread != null) {
+			if (audioThread != null)
 				audioThread.join();
-			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
@@ -666,39 +644,4 @@ public class ScreenRecorder {
 			});
 		}
 	}
-	
-	private static class StreamingResampler {
-	    private double pos = 0.0;
-	    private short[] pending = new short[0];
-
-	    short[] process(short[] input, float srcRate, float dstRate) {
-	        if (input.length == 0) return new short[0];
-
-	        short[] buf = new short[pending.length + input.length];
-	        System.arraycopy(pending, 0, buf, 0, pending.length);
-	        System.arraycopy(input, 0, buf, pending.length, input.length);
-
-	        double ratio = dstRate / srcRate;
-	        java.util.List<Short> outList = new java.util.ArrayList<>();
-
-	        while (true) {
-	            int idx0 = (int) Math.floor(pos);
-	            int idx1 = idx0 + 1;
-	            if (idx1 >= buf.length) break;  
-	            double frac = pos - idx0;
-	            short sample = (short) Math.round(buf[idx0] * (1.0 - frac) + buf[idx1] * frac);
-	            outList.add(sample);
-	            pos += 1.0 / ratio;
-	        }
-
-	        int consumedWhole = Math.min((int) Math.floor(pos), buf.length - 1);
-	        pos -= consumedWhole;
-	        pending = java.util.Arrays.copyOfRange(buf, consumedWhole, buf.length);
-
-	        short[] out = new short[outList.size()];
-	        for (int i = 0; i < out.length; i++) out[i] = outList.get(i);
-	        return out;
-	    }
-	}
-
 }
