@@ -2,6 +2,7 @@ package com.oranbyte.screenrec.test;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
+import com.oranbyte.screenrec.constants.AppUI;
 import com.oranbyte.screenrec.gui.VideoPlayerPanel;
 
 public class VideoPlayerFrame extends JFrame {
@@ -11,10 +12,11 @@ public class VideoPlayerFrame extends JFrame {
     public VideoPlayerFrame(String videoPath) {
         super("Video Player");
 
+        
         panel = new VideoPlayerPanel();
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setContentPane(panel);
+        add(panel);
 
         setSize(1000, 650);
         setLocationRelativeTo(null);
@@ -22,7 +24,8 @@ public class VideoPlayerFrame extends JFrame {
         panel.open(videoPath);
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) { 
+    	
         SwingUtilities.invokeLater(() -> {
             String videoPath =
                     "C:\\Users\\Shubham\\Videos\\REACT AUTH\\2- React User Login and Authentication with Axios_720p.mp4";
