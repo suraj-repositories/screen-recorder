@@ -2,13 +2,14 @@ package com.oranbyte.screenrec.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -18,12 +19,11 @@ import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout; 
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JLayeredPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.PopupMenuEvent;
@@ -48,20 +48,23 @@ public class VideoPlayerPanel extends JPanel {
 	private static final long serialVersionUID = 1L;
 
 	private final JFXPanel fxPanel = new JFXPanel();
-	private static final int DEFAULT_ICON_SIZE = 24;
 
 	private static final Icons PLAY_ICON = Icons.PLAY_WHITE;
 	private static final Icons PAUSE_ICON = Icons.PAUSE_WHITE;
 	private static final Icons SPEAKER_ICON = Icons.SPEAKER;
 
+	private static final int DEFAULT_ICON_SIZE = 24;
 	private static final int CONTROL_HEIGHT = 56;
 	private static final int SIDE_MARGIN = 24;
 	private static final int BOTTOM_MARGIN = 24;
 	private static final int HIDE_DELAY_MS = 350;
 	private static final int ANIM_TICK_MS = 15;
 	private static final int ANIM_STEP = 18;
-
 	private static final int CONTROLS_MAX_WIDTH = 600;
+	private static final int MAX_MEDIA_RETRIES = 3;
+	private static final long MEDIA_RETRY_DELAY_MS = 1000;
+	
+	private static final boolean ENABLE_LOGGING = false;
 
 	private MediaPlayer mediaPlayer;
 
@@ -90,6 +93,7 @@ public class VideoPlayerPanel extends JPanel {
 	private long lastPopupCloseTime = 0;
 
 	private static final int pad = 10;
+	private MediaView currentMediaView;
 
 	public VideoPlayerPanel() {
 		setLayout(new BorderLayout());
@@ -99,6 +103,26 @@ public class VideoPlayerPanel extends JPanel {
 		layeredPane.setLayout(null);
 
 		fxPanel.setBounds(0, 0, 0, 0);
+		fxPanel.addComponentListener(new ComponentAdapter() {
+
+			@Override
+			public void componentResized(ComponentEvent e) {
+
+				MediaView view = currentMediaView;
+
+				if (view == null) {
+					return;
+				}
+
+				double width = fxPanel.getWidth();
+				double height = fxPanel.getHeight();
+
+				Platform.runLater(() -> {
+					view.setFitWidth(width);
+					view.setFitHeight(height);
+				});
+			}
+		});
 		layeredPane.add(fxPanel, JLayeredPane.DEFAULT_LAYER);
 
 		createControls();
@@ -173,17 +197,16 @@ public class VideoPlayerPanel extends JPanel {
 		volumeButton.setBorder(null);
 
 		volumeButton.addActionListener(e -> {
-			if (mediaPlayer == null)
+			if (mediaPlayer == null) {
 				return;
-
-			long now = System.currentTimeMillis();
-			if (now - lastPopupCloseTime < 150) {
+			}
+ 
+			if (System.currentTimeMillis() - lastPopupCloseTime < 250) {
 				return;
 			}
 
 			if (isVolumePopupShowing()) {
-				volumePopup.setVisible(false);
-				volumePopup = null;
+				closeVolumePopup();
 			} else {
 				showVolumePopup();
 			}
@@ -247,25 +270,17 @@ public class VideoPlayerPanel extends JPanel {
 		if (mediaPlayer == null)
 			return;
 
-		JPanel panel = new JPanel() {
-			private static final long serialVersionUID = 1L;
+		if (volumePopup != null) {
+			volumePopup.setVisible(false);
+			volumePopup = null;
+		}
 
-			@Override
-			protected void paintComponent(Graphics g) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(new Color(30, 30, 30, 180));
-				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-				g2.dispose();
-
-				super.paintComponent(g);
-			}
-		};
+		JPanel panel = new JPanel();
 
 		panel.setOpaque(false);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
-		panel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
-
+		panel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10)); 
+		
 		boolean isMuted = mediaPlayer.isMute();
 		ToolbarButton muteButton = new ToolbarButton(Icons.SPEAKER, DEFAULT_ICON_SIZE);
 		muteButton.setAllowed(!isMuted);
@@ -291,8 +306,8 @@ public class VideoPlayerPanel extends JPanel {
 		volumeSlider.setMinimum(0);
 		volumeSlider.setMaximum(100);
 		volumeSlider.setValue((int) Math.round(mediaPlayer.getVolume() * 100));
-		volumeSlider.setPreferredSize(new Dimension(110, 20));
-		volumeSlider.setMaximumSize(new Dimension(110, 20));
+		volumeSlider.setPreferredSize(new Dimension(150, 20));
+		volumeSlider.setMaximumSize(new Dimension(150, 20));
 
 		JLabel volumeLabel = new JLabel(volumeSlider.getValue() + "%");
 		volumeLabel.setForeground(Color.WHITE);
@@ -304,8 +319,7 @@ public class VideoPlayerPanel extends JPanel {
 			Platform.runLater(() -> mediaPlayer.setVolume(value / 100.0));
 		});
 
-		panel.add(muteButton);
-		panel.add(Box.createHorizontalStrut(8));
+		panel.add(muteButton); 
 		panel.add(volumeSlider);
 		panel.add(Box.createHorizontalStrut(8));
 		panel.add(volumeLabel);
@@ -323,40 +337,82 @@ public class VideoPlayerPanel extends JPanel {
 		};
 		addHoverRecursively(panel, popupHoverAdapter);
 
-		volumePopup = new JPopupMenu();
+		volumePopup = new JPopupMenu(){
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2 = (Graphics2D) g.create();
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+				g2.setColor(new Color(30, 30, 30, 220));
+				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+				g2.dispose();
+
+				super.paintComponent(g);
+			}
+		};
 		volumePopup.setFocusable(false);
 		volumePopup.setBorder(BorderFactory.createEmptyBorder());
 		volumePopup.setOpaque(false);
-		volumePopup.setBackground(new Color(0, 0, 0, 0));
-
+		volumePopup.setBackground(new Color(0, 0, 0, 0)); 
 		volumePopup.setLayout(new BorderLayout());
-		volumePopup.add(panel, BorderLayout.CENTER);
+		volumePopup.add(panel, BorderLayout.CENTER); 
 
 		volumePopup.addPopupMenuListener(new PopupMenuListener() {
+
 			@Override
 			public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+				SwingUtilities.invokeLater(() -> {
+			        Window window = SwingUtilities.getWindowAncestor(volumePopup);
+			        if (window instanceof Frame frame) { 
+			            if (frame.isUndecorated()) {
+			                frame.setBackground(new Color(0, 0, 0, 0));
+			            }
+			        } else if (window != null) {
+			            window.setBackground(new Color(0, 0, 0, 0));
+			        }
+			    });
 			}
 
 			@Override
 			public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
 				lastPopupCloseTime = System.currentTimeMillis();
-				volumePopup = null;
-				scheduleHideControls();
+				SwingUtilities.invokeLater(() -> {
+					if (volumePopup != null && !volumePopup.isVisible()) {
+						volumePopup = null;
+					}
+					scheduleHideControls();
+				});
 			}
 
 			@Override
 			public void popupMenuCanceled(PopupMenuEvent e) {
 				lastPopupCloseTime = System.currentTimeMillis();
-				volumePopup = null;
-				scheduleHideControls();
+				SwingUtilities.invokeLater(() -> {
+					volumePopup = null;
+					scheduleHideControls();
+				});
 			}
 		});
 
 		Dimension popupSize = panel.getPreferredSize();
-		int x = (volumeButton.getWidth() - popupSize.width) / 2;
-		int y = -popupSize.height - 8;
-
+		int x = (volumeButton.getWidth() - popupSize.width) / 2; 
+		int y = -popupSize.height - 12;
+ 
 		volumePopup.show(volumeButton, x, y);
+	}
+
+	private void closeVolumePopup() {
+		if (volumePopup != null) {
+			lastPopupCloseTime = System.currentTimeMillis();
+			JPopupMenu popup = volumePopup;
+			volumePopup = null;
+
+			popup.setVisible(false);
+			popup.removeAll();
+		}
+
+		scheduleHideControls();
 	}
 
 	private void layoutControlsPanel() {
@@ -498,86 +554,254 @@ public class VideoPlayerPanel extends JPanel {
 			}
 		});
 	}
-
+ 
 	private void loadMedia() {
+		loadMedia(0);
+	}
+
+	private void loadMedia(int retryCount) {
 
 		Platform.runLater(() -> {
 
-			if (mediaPlayer != null) {
-				mediaPlayer.stop();
-				mediaPlayer.dispose();
+			MediaPlayer oldPlayer = mediaPlayer;
+
+			if (oldPlayer != null) {
 				mediaPlayer = null;
+
+				try {
+					oldPlayer.stop();
+				} catch (Exception ignored) {
+				}
+
+				try {
+					oldPlayer.dispose();
+				} catch (Exception ignored) {
+				}
 			}
 
 			try {
+
 				SwingUtilities.invokeLater(() -> progressSlider.setTotalSeconds(0));
 
-				Media media = new Media(file.toURI().toASCIIString());
-				mediaPlayer = new MediaPlayer(media);
-
-				MediaView mediaView = new MediaView(mediaPlayer);
-				mediaView.setPreserveRatio(true);
-
-				mediaPlayer.setOnEndOfMedia(() -> {
-					mediaPlayer.seek(Duration.ZERO);
-					mediaPlayer.pause();
-
-					SwingUtilities.invokeLater(() -> {
-						playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
-						progressSlider.setValue(0);
-						elapsedTimeLabel.setText("00:00:00");
-
-						Duration total = mediaPlayer.getTotalDuration();
-						if (!total.isUnknown()) {
-							remainingTimeLabel.setText(formatTime(total));
-						}
-					});
-				});
-
-				StackPane root = new StackPane(mediaView);
-
-				fxPanel.addComponentListener(new ComponentAdapter() {
-					@Override
-					public void componentResized(ComponentEvent e) {
-
-						double width = fxPanel.getWidth();
-						double height = fxPanel.getHeight();
-
-						Platform.runLater(() -> {
-							mediaView.setFitWidth(width);
-							mediaView.setFitHeight(height);
-						});
+				if (file == null || !file.isFile()) {
+					if(ENABLE_LOGGING) {
+						System.err.println("Invalid media file: " + file);						
 					}
-				});
+					return;
+				} 
+				waitForFileStableAsync(file, stable -> {
 
-				fxPanel.setScene(new Scene(root));
-
-				mediaPlayer.setOnReady(() -> {
-
-					Dimension size = new Dimension((int) media.getWidth(), (int) media.getHeight());
-					Duration total = mediaPlayer.getTotalDuration();
-
-					SwingUtilities.invokeLater(() -> {
-						if (onVideoReady != null) {
-							onVideoReady.accept(size);
+					if (!stable) {
+						if(ENABLE_LOGGING) {
+							System.err.println("File did not become stable: " + file.getAbsolutePath());							
 						}
 
-						playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
+						retryLoad(retryCount);
+						return;
+					}
 
-						if (total != null && !total.isUnknown()) {
-							remainingTimeLabel.setText(formatTime(total));
-							progressSlider.setTotalSeconds(total.toSeconds());
-						}
-
-						updateProgress();
-					});
+					Platform.runLater(() -> createMediaPlayer(retryCount));
 				});
 
-				mediaPlayer.setOnError(() -> System.out.println(mediaPlayer.getError()));
 			} catch (Exception ex) {
-				ex.printStackTrace();
+				if(ENABLE_LOGGING) {
+					System.err.println("Failed while preparing media");
+					ex.printStackTrace();					
+				}
+
+				retryLoad(retryCount);
 			}
 		});
+	}
+
+	private void createMediaPlayer(int retryCount) {
+
+		try {
+
+			if (file == null || !file.isFile()) {
+				if(ENABLE_LOGGING) {
+					System.err.println("Invalid media file: " + file);					
+				}
+				return;
+			}
+
+			String uri = file.toURI().toString();
+
+			if(ENABLE_LOGGING) {
+				System.out.println("================================");
+				System.out.println("Loading media");
+				System.out.println("Attempt  : " + (retryCount + 1));
+				System.out.println("File     : " + file.getAbsolutePath());
+				System.out.println("Exists   : " + file.exists());
+				System.out.println("Size     : " + file.length());
+				System.out.println("URI      : " + uri);
+				System.out.println("================================");				
+			}
+
+			Media media = new Media(uri);
+
+			MediaPlayer player = new MediaPlayer(media);
+
+			mediaPlayer = player;
+
+			MediaView mediaView = new MediaView(player);
+			mediaView.setPreserveRatio(true);
+
+			StackPane root = new StackPane(mediaView);
+
+			fxPanel.setScene(new Scene(root));
+
+			player.setOnReady(() -> {
+
+				if(ENABLE_LOGGING) {
+					System.out.println("Media READY: " + file.getName());
+				}
+				
+
+				int width = (int) media.getWidth();
+				int height = (int) media.getHeight();
+
+				Dimension size = new Dimension(width, height);
+				Duration total = player.getTotalDuration();
+
+				SwingUtilities.invokeLater(() -> {
+					if (onVideoReady != null) {
+						onVideoReady.accept(size);
+					}
+					playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
+
+					if (total != null && !total.isUnknown()) {
+						remainingTimeLabel.setText(formatTime(total));
+						progressSlider.setTotalSeconds(total.toSeconds());
+					}
+
+					updateProgress();
+				});
+			});
+
+			player.setOnEndOfMedia(() -> {
+				player.seek(Duration.ZERO);
+				player.pause();
+
+				SwingUtilities.invokeLater(() -> {
+					playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE);
+					progressSlider.setValue(0);
+					elapsedTimeLabel.setText("00:00:00");
+					Duration total = player.getTotalDuration();
+
+					if (total != null && !total.isUnknown()) {
+						remainingTimeLabel.setText(formatTime(total));
+					}
+				});
+			});
+
+			player.setOnError(() -> {
+
+				Throwable error = player.getError();
+
+				if(ENABLE_LOGGING) {
+					System.err.println("================================");
+					System.err.println("JavaFX MediaPlayer ERROR");
+					System.err.println("Attempt : " + (retryCount + 1));
+					System.err.println("File    : " + file.getAbsolutePath());
+					System.err.println("Size    : " + file.length());
+					System.err.println("URI     : " + uri);					
+					if (error != null) {
+						error.printStackTrace();
+					}
+					
+					System.err.println("================================");
+				}
+ 
+				if (mediaPlayer == player) {
+
+					mediaPlayer = null;
+
+					try {
+						player.stop();
+					} catch (Exception ignored) {
+					}
+
+					try {
+						player.dispose();
+					} catch (Exception ignored) {
+					}
+
+					retryLoad(retryCount);
+				}
+			});
+
+		} catch (Exception ex) {
+			if(ENABLE_LOGGING) {				
+				System.err.println("Failed to create JavaFX media player");
+				System.err.println("Attempt: " + (retryCount + 1));
+				System.err.println("File: " + file);
+				ex.printStackTrace();
+			}
+
+			retryLoad(retryCount);
+		}
+	}
+
+	private void retryLoad(int retryCount) {
+
+		if (retryCount >= MAX_MEDIA_RETRIES) {
+
+			if(ENABLE_LOGGING) {
+				System.err.println("Media loading failed after " + MAX_MEDIA_RETRIES + " retries: " + file);				
+			}
+
+			return;
+		}
+
+		int nextAttempt = retryCount + 1;
+		if(ENABLE_LOGGING) {
+			System.out.println("Retrying media load in " + MEDIA_RETRY_DELAY_MS + " ms...");			
+		}
+
+		Thread retryThread = new Thread(() -> {
+
+			try {
+				Thread.sleep(MEDIA_RETRY_DELAY_MS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+
+			loadMedia(nextAttempt);
+
+		}, "Media-Retry-" + nextAttempt);
+
+		retryThread.setDaemon(true);
+		retryThread.start();
+	}
+
+	private void waitForFileStableAsync(File file, java.util.function.Consumer<Boolean> callback) {
+
+		Thread thread = new Thread(() -> {
+			long previousSize = -1;
+
+			for (int i = 0; i < 20; i++) {
+
+				long currentSize = file.length();
+				if (currentSize > 0 && currentSize == previousSize) {
+					callback.accept(true);
+					return;
+				}
+				previousSize = currentSize;
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					callback.accept(false);
+					return;
+				}
+			}
+			callback.accept(false);
+		}, "Media-File-Stability-Check");
+
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 	private void updateProgress() {
@@ -623,13 +847,15 @@ public class VideoPlayerPanel extends JPanel {
 	public void open(String src) {
 		this.file = new File(src);
 		if (!file.exists() || file.length() == 0) {
-			System.err.println("File does not exist or is empty: " + src);
+			if(ENABLE_LOGGING) {
+				System.err.println("File does not exist or is empty: " + src);				
+			}
 			return;
 		}
 		loadMedia();
 	}
 
-	public void setOnVideoReady(Consumer<Dimension> onVideoReady) {
+	public void setOnVideoReady(@SuppressWarnings("exports") Consumer<Dimension> onVideoReady) {
 		this.onVideoReady = onVideoReady;
 	}
 
