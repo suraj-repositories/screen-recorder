@@ -32,19 +32,12 @@ public class ToolbarButton extends JButton {
 	private boolean hasBorder = true;
 	private boolean isAllowed = true;
 
+	private Color backgroundColor = new Color(0, 0, 0, 0);  
+	private Color foregroundColor = AppColors.TEXT;
+	private Color hoverBackgroundColor = AppColors.BUTTON_HOVER;
+	private Color pressedBackgroundColor = AppColors.BUTTON_PRESSED;
+
 	private Color currentBorderColor = AppColors.BORDER;
-
-	private Border buildBorder(Color color) {
-		Border outerBorder = hasBorder ? new RoundedBorder(color, borderRadius, BORDER_THICKNESS)
-				: new EmptyBorder(BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS);
-		Border innerBorder = new EmptyBorder(padding);
-		return BorderFactory.createCompoundBorder(outerBorder, innerBorder);
-	}
-
-	private void applyBorder(Color color) {
-		this.currentBorderColor = color;
-		super.setBorder(buildBorder(color));
-	}
 
 	public ToolbarButton(String text, Icons icon) {
 		this(text, icon, DEFAULT_ICON_SIZE);
@@ -53,6 +46,11 @@ public class ToolbarButton extends JButton {
 	public ToolbarButton(String text, Icons icon, int iconSize) {
 		super(text, icon.icon(iconSize));
 		initialize();
+	}
+
+	public ToolbarButton(String text, Icons icon, int iconSize, int borderRadius) {
+		this(text, icon, iconSize);
+		this.borderRadius = borderRadius;
 	}
 
 	public ToolbarButton(Icons icon) {
@@ -72,10 +70,10 @@ public class ToolbarButton extends JButton {
 		setFocusable(false);
 		setFocusPainted(false);
 		setContentAreaFilled(false);
-		setOpaque(true);
+		setOpaque(false);
 		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		setBackground(AppColors.BUTTON);
-		setForeground(AppColors.TEXT);
+		setBackground(backgroundColor);
+		setForeground(foregroundColor);
 		setFont(DEFAULT_FONT);
 		setHorizontalAlignment(LEFT);
 		setHorizontalTextPosition(RIGHT);
@@ -86,28 +84,54 @@ public class ToolbarButton extends JButton {
 		installHoverEffects();
 	}
 
+	private Border buildBorder(Color color) {
+		Border outerBorder = (hasBorder && color != null)
+				? new RoundedBorder(color, borderRadius, BORDER_THICKNESS)
+				: new EmptyBorder(BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS, BORDER_THICKNESS);
+		Border innerBorder = new EmptyBorder(padding);
+		return BorderFactory.createCompoundBorder(outerBorder, innerBorder);
+	}
+
+	private void applyBorder(Color color) {
+		this.currentBorderColor = color;
+		super.setBorder(buildBorder(color));
+	}
+
 	private void installHoverEffects() {
 		addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseEntered(MouseEvent e) {
-				setBackground(AppColors.BUTTON_HOVER);
-				applyBorder(AppColors.BORDER_HOVER);
+				if (hoverBackgroundColor != null) {
+					setBackground(hoverBackgroundColor);
+				}
+				if (hasBorder) {
+					applyBorder(AppColors.BORDER_HOVER);
+				}
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
-				setBackground(AppColors.BUTTON);
-				applyBorder(AppColors.BORDER);
+				setBackground(backgroundColor != null ? backgroundColor : new Color(0, 0, 0, 0));
+				if (hasBorder) {
+					applyBorder(AppColors.BORDER);
+				}
 			}
 
 			@Override
 			public void mousePressed(MouseEvent e) {
-				setBackground(AppColors.BUTTON_PRESSED);
+				if (pressedBackgroundColor != null) {
+					setBackground(pressedBackgroundColor);
+				}
 			}
 
 			@Override
 			public void mouseReleased(MouseEvent e) {
-				setBackground(contains(e.getPoint()) ? AppColors.BUTTON_HOVER : AppColors.BUTTON);
+				boolean inside = contains(e.getPoint());
+				if (inside && hoverBackgroundColor != null) {
+					setBackground(hoverBackgroundColor);
+				} else {
+					setBackground(backgroundColor != null ? backgroundColor : new Color(0, 0, 0, 0));
+				}
 			}
 		});
 	}
@@ -137,7 +161,7 @@ public class ToolbarButton extends JButton {
 
 	public ToolbarButton setHasBorder(boolean hasBorder) {
 		this.hasBorder = hasBorder;
-		applyBorder(currentBorderColor);
+		applyBorder(hasBorder ? currentBorderColor : null);
 		return this;
 	}
 
@@ -158,9 +182,9 @@ public class ToolbarButton extends JButton {
 
 	@Override
 	public void setBorder(Border border) {
-		hasBorder = border != null;
+		this.hasBorder = (border != null);
 		if (border == null) {
-			applyBorder(currentBorderColor);
+			applyBorder(null);
 		} else {
 			super.setBorder(border);
 		}
@@ -168,24 +192,32 @@ public class ToolbarButton extends JButton {
 
 	public void setBorderRadius(int borderRadius) {
 		this.borderRadius = borderRadius;
-		applyBorder(currentBorderColor);
+		applyBorder(hasBorder ? currentBorderColor : null);
+		repaint();
 	}
 
 	@Override
 	protected void paintComponent(Graphics g) {
+		Color bg = getBackground();
+
+		// Paint rounded background whenever a non-transparent color is active
+		if (bg != null && bg.getAlpha() > 0) {
+			Graphics2D g2Bg = (Graphics2D) g.create();
+			g2Bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2Bg.setColor(bg);
+			g2Bg.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, borderRadius, borderRadius);
+			g2Bg.dispose();
+		}
+
 		super.paintComponent(g);
 
 		if (!isAllowed) {
 			Graphics2D g2 = (Graphics2D) g.create();
-
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
 			g2.setColor(AppColors.PRIMARY);
 			g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
 			int margin = 8;
 			g2.drawLine(margin, getHeight() - margin, getWidth() - margin, margin);
-
 			g2.dispose();
 		}
 	}
@@ -202,10 +234,42 @@ public class ToolbarButton extends JButton {
 	}
 
 	public ToolbarButton setSm() {
-
 		this.setPadding(4, 7, 4, 7);
 		return this;
-
 	}
 
+	public Color getBackgroundColor() {
+		return backgroundColor;
+	}
+
+	public void setBackgroundColor(Color backgroundColor) {
+		// Use transparent color instead of null to prevent Swing from breaking background states
+		this.backgroundColor = (backgroundColor == null) ? new Color(0, 0, 0, 0) : backgroundColor;
+		setBackground(this.backgroundColor);
+	}
+
+	public Color getForegroundColor() {
+		return foregroundColor;
+	}
+
+	public void setForegroundColor(Color foregroundColor) {
+		this.foregroundColor = foregroundColor;
+		setForeground(foregroundColor);
+	}
+
+	public Color getHoverBackgroundColor() {
+		return hoverBackgroundColor;
+	}
+
+	public void setHoverBackgroundColor(Color hoverBackgroundColor) {
+		this.hoverBackgroundColor = hoverBackgroundColor;
+	}
+
+	public Color getPressedBackgroundColor() {
+		return pressedBackgroundColor;
+	}
+
+	public void setPressedBackgroundColor(Color pressedBackgroundColor) {
+		this.pressedBackgroundColor = pressedBackgroundColor;
+	}
 }

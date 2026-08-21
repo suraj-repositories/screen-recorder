@@ -34,7 +34,6 @@ import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.gui.components.ImageSwitch;
-import com.oranbyte.screenrec.gui.components.ShareDialog;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
 import com.oranbyte.screenrec.gui.components.ToolbarComboBox;
 import com.oranbyte.screenrec.util.NotificationUtil;

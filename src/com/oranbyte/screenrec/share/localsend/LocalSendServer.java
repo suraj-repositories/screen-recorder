@@ -23,682 +23,427 @@ import com.sun.net.httpserver.HttpsServer;
 
 public class LocalSendServer {
 
-    private final int port;
+	private final int port;
 
-    private final Path downloadDirectory;
+	private final Path downloadDirectory;
 
-    private final Map<String, Session> sessions =
-            new ConcurrentHashMap<>();
+	private final Map<String, Session> sessions = new ConcurrentHashMap<>();
 
-    private HttpsServer server;
+	private HttpsServer server;
 
-    public LocalSendServer(int port) {
+	public LocalSendServer(int port) {
 
-        this.port = port;
+		this.port = port;
 
-        this.downloadDirectory =
-                Path.of(
-                        System.getProperty("user.home"),
-                        "Downloads",
-                        "ScreenRecorder");
-    }
+		this.downloadDirectory = Path.of(System.getProperty("user.home"), "Downloads", "ScreenRecorder");
+	}
 
-    public synchronized void start()
-            throws Exception {
+	public synchronized void start() throws Exception {
 
-        if (server != null) {
-            return;
-        }
+		if (server != null) {
+			return;
+		}
 
-        Files.createDirectories(
-                downloadDirectory);
+		Files.createDirectories(downloadDirectory);
 
-        SSLContext sslContext =
-                LocalSendSslContext
-                        .createServerContext();
+		SSLContext sslContext = LocalSendSslContext.createServerContext();
 
-        server =
-                HttpsServer.create(
-                        new InetSocketAddress(
-                                port),
-                        0);
+		server = HttpsServer.create(new InetSocketAddress(port), 0);
 
-        server.setExecutor(
-                java.util.concurrent.Executors
-                        .newCachedThreadPool(
-                                runnable -> {
+		server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
 
-                                    Thread thread =
-                                            new Thread(
-                                                    runnable,
-                                                    "LocalSend-HTTP");
+			Thread thread = new Thread(runnable, "LocalSend-HTTP");
 
-                                    thread.setDaemon(
-                                            true);
+			thread.setDaemon(true);
 
-                                    return thread;
-                                }));
+			return thread;
+		}));
 
-        server.setHttpsConfigurator(
-                new HttpsConfigurator(
-                        sslContext));
+		server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
 
-        server.createContext(
-                LocalSendProtocol
-                        .REGISTER_PATH,
-                this::handleRegister);
+		server.createContext(LocalSendProtocol.REGISTER_PATH, this::handleRegister);
 
-        server.createContext(
-                LocalSendProtocol
-                        .PREPARE_UPLOAD_PATH,
-                this::handlePrepareUpload);
+		server.createContext(LocalSendProtocol.PREPARE_UPLOAD_PATH, this::handlePrepareUpload);
 
-        server.createContext(
-                LocalSendProtocol
-                        .UPLOAD_PATH,
-                this::handleUpload);
+		server.createContext(LocalSendProtocol.UPLOAD_PATH, this::handleUpload);
 
-        server.createContext(
-                LocalSendProtocol
-                        .CANCEL_PATH,
-                this::handleCancel);
+		server.createContext(LocalSendProtocol.CANCEL_PATH, this::handleCancel);
 
-        server.createContext(
-                LocalSendProtocol
-                        .INFO_PATH,
-                this::handleInfo);
+		server.createContext(LocalSendProtocol.INFO_PATH, this::handleInfo);
 
-        server.start();
+		server.start();
 
-        System.out.println(
-                "LocalSend server started on port "
-                        + port);
-    }
+		System.out.println("LocalSend server started on port " + port);
+	}
 
-    public synchronized void stop() {
+	public synchronized void stop() {
 
-        if (server != null) {
+		if (server != null) {
 
-            server.stop(0);
+			server.stop(0);
 
-            server = null;
-        }
+			server = null;
+		}
 
-        sessions.clear();
-    }
+		sessions.clear();
+	}
 
-    private void handleRegister(
-            HttpExchange exchange)
-            throws IOException {
+	private void handleRegister(HttpExchange exchange) throws IOException {
 
-        if (!"POST".equalsIgnoreCase(
-                exchange.getRequestMethod())) {
+		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-            sendStatus(
-                    exchange,
-                    405);
+			sendStatus(exchange, 405);
 
-            return;
-        }
+			return;
+		}
 
-        String body =
-                readBody(exchange);
+		String body = readBody(exchange);
 
-        System.out.println(
-                "LocalSend register: "
-                        + body);
+		System.out.println("LocalSend register: " + body);
 
-        sendJson(
-                exchange,
-                200,
-                createIdentityJson());
-    }
+		sendJson(exchange, 200, createIdentityJson());
+	}
 
-    private void handlePrepareUpload(
-            HttpExchange exchange)
-            throws IOException {
+	private void handlePrepareUpload(HttpExchange exchange) throws IOException {
 
-        if (!"POST".equalsIgnoreCase(
-                exchange.getRequestMethod())) {
+		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-            sendStatus(
-                    exchange,
-                    405);
+			sendStatus(exchange, 405);
 
-            return;
-        }
+			return;
+		}
 
-        try {
+		try {
 
-            String body =
-                    readBody(exchange);
+			String body = readBody(exchange);
 
-            JSONObject request =
-                    new JSONObject(body);
+			JSONObject request = new JSONObject(body);
 
-            JSONObject files =
-                    request.optJSONObject(
-                            "files");
+			JSONObject files = request.optJSONObject("files");
 
-            if (files == null ||
-                    files.isEmpty()) {
+			if (files == null || files.isEmpty()) {
 
-                sendStatus(
-                        exchange,
-                        400);
+				sendStatus(exchange, 400);
 
-                return;
-            }
+				return;
+			}
 
-            /*
-             * LocalSend allows one active session.
-             */
-            if (!sessions.isEmpty()) {
+			/*
+			 * LocalSend allows one active session.
+			 */
+			if (!sessions.isEmpty()) {
 
-                sendStatus(
-                        exchange,
-                        409);
+				sendStatus(exchange, 409);
 
-                return;
-            }
+				return;
+			}
 
-            String sessionId =
-                    UUID.randomUUID()
-                            .toString();
+			String sessionId = UUID.randomUUID().toString();
 
-            Session session =
-                    new Session(
-                            sessionId,
-                            exchange.getRemoteAddress()
-                                    .getAddress()
-                                    .getHostAddress());
+			Session session = new Session(sessionId, exchange.getRemoteAddress().getAddress().getHostAddress());
 
-            for (String fileId :
-                    files.keySet()) {
+			for (String fileId : files.keySet()) {
 
-                JSONObject jsonFile =
-                        files.getJSONObject(
-                                fileId);
+				JSONObject jsonFile = files.getJSONObject(fileId);
 
-                String name =
-                        jsonFile.getString(
-                                "fileName");
+				String name = jsonFile.getString("fileName");
 
-                long size =
-                        jsonFile.getLong(
-                                "size");
+				long size = jsonFile.getLong("size");
 
-                String token =
-                        UUID.randomUUID()
-                                .toString();
+				String token = UUID.randomUUID().toString();
 
-                session.files.put(
-                        fileId,
-                        new PendingFile(
-                                fileId,
-                                token,
-                                name,
-                                size));
-            }
+				session.files.put(fileId, new PendingFile(fileId, token, name, size));
+			}
 
-            sessions.put(
-                    sessionId,
-                    session);
+			sessions.put(sessionId, session);
 
-            JSONObject response =
-                    new JSONObject();
+			JSONObject response = new JSONObject();
 
-            response.put(
-                    "sessionId",
-                    sessionId);
+			response.put("sessionId", sessionId);
 
-            JSONObject tokens =
-                    new JSONObject();
+			JSONObject tokens = new JSONObject();
 
-            for (PendingFile file :
-                    session.files.values()) {
+			for (PendingFile file : session.files.values()) {
 
-                tokens.put(
-                        file.id,
-                        file.token);
-            }
+				tokens.put(file.id, file.token);
+			}
 
-            response.put(
-                    "files",
-                    tokens);
+			response.put("files", tokens);
 
-            sendJson(
-                    exchange,
-                    200,
-                    response);
+			sendJson(exchange, 200, response);
 
-        } catch (Exception e) {
+		} catch (Exception e) {
 
-            e.printStackTrace();
+			e.printStackTrace();
 
-            sendStatus(
-                    exchange,
-                    400);
-        }
-    }
+			sendStatus(exchange, 400);
+		}
+	}
 
-    private void handleUpload(
-            HttpExchange exchange)
-            throws IOException {
+	private void handleUpload(HttpExchange exchange) throws IOException {
 
-        if (!"POST".equalsIgnoreCase(
-                exchange.getRequestMethod())) {
+		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-            sendStatus(
-                    exchange,
-                    405);
+			sendStatus(exchange, 405);
 
-            return;
-        }
+			return;
+		}
 
-        Map<String, String> query =
-                parseQuery(
-                        exchange.getRequestURI()
-                                .getRawQuery());
+		Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
 
-        String sessionId =
-                query.get("sessionId");
+		String sessionId = query.get("sessionId");
 
-        String fileId =
-                query.get("fileId");
+		String fileId = query.get("fileId");
 
-        String token =
-                query.get("token");
+		String token = query.get("token");
 
-        if (sessionId == null ||
-                fileId == null ||
-                token == null) {
+		if (sessionId == null || fileId == null || token == null) {
 
-            sendStatus(
-                    exchange,
-                    400);
+			sendStatus(exchange, 400);
 
-            return;
-        }
+			return;
+		}
 
-        Session session =
-                sessions.get(sessionId);
+		Session session = sessions.get(sessionId);
 
-        if (session == null) {
+		if (session == null) {
 
-            sendStatus(
-                    exchange,
-                    403);
+			sendStatus(exchange, 403);
 
-            return;
-        }
+			return;
+		}
 
-        String remoteAddress =
-                exchange.getRemoteAddress()
-                        .getAddress()
-                        .getHostAddress();
+		String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
 
-        if (!session.remoteAddress
-                .equals(remoteAddress)) {
+		if (!session.remoteAddress.equals(remoteAddress)) {
 
-            sendStatus(
-                    exchange,
-                    403);
+			sendStatus(exchange, 403);
 
-            return;
-        }
+			return;
+		}
 
-        PendingFile file =
-                session.files.get(fileId);
+		PendingFile file = session.files.get(fileId);
 
-        if (file == null ||
-                !file.token.equals(token)) {
+		if (file == null || !file.token.equals(token)) {
 
-            sendStatus(
-                    exchange,
-                    403);
+			sendStatus(exchange, 403);
 
-            return;
-        }
+			return;
+		}
 
-        Path target =
-                createSafePath(
-                        file.fileName);
+		Path target = createSafePath(file.fileName);
 
-        Path temporary =
-                target.resolveSibling(
-                        target.getFileName()
-                                + ".part");
+		Path temporary = target.resolveSibling(target.getFileName() + ".part");
 
-        try {
+		try {
 
-            long received = 0;
+			long received = 0;
 
-            try (InputStream input =
-                         exchange.getRequestBody();
+			try (InputStream input = exchange.getRequestBody();
 
-                 OutputStream output =
-                         Files.newOutputStream(
-                                 temporary)) {
+					OutputStream output = Files.newOutputStream(temporary)) {
 
-                byte[] buffer =
-                        new byte[1024 * 1024];
+				byte[] buffer = new byte[1024 * 1024];
 
-                int read;
+				int read;
 
-                while ((read =
-                        input.read(buffer)) != -1) {
+				while ((read = input.read(buffer)) != -1) {
 
-                    output.write(
-                            buffer,
-                            0,
-                            read);
+					output.write(buffer, 0, read);
 
-                    received += read;
-                }
-            }
+					received += read;
+				}
+			}
 
-            if (received != file.size) {
+			if (received != file.size) {
 
-                Files.deleteIfExists(
-                        temporary);
+				Files.deleteIfExists(temporary);
 
-                sendStatus(
-                        exchange,
-                        500);
+				sendStatus(exchange, 500);
 
-                return;
-            }
+				return;
+			}
 
-            Files.move(
-                    temporary,
-                    target,
-                    StandardCopyOption
-                            .REPLACE_EXISTING);
+			Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
 
-            file.received = true;
+			file.received = true;
 
-            System.out.println(
-                    "LocalSend received: "
-                            + target);
+			System.out.println("LocalSend received: " + target);
 
-            sendStatus(
-                    exchange,
-                    200);
+			sendStatus(exchange, 200);
 
-            if (session.allReceived()) {
+			if (session.allReceived()) {
 
-                sessions.remove(
-                        sessionId);
-            }
+				sessions.remove(sessionId);
+			}
 
-        } catch (Exception e) {
+		} catch (Exception e) {
 
-            Files.deleteIfExists(
-                    temporary);
+			Files.deleteIfExists(temporary);
 
-            e.printStackTrace();
+			e.printStackTrace();
 
-            sendStatus(
-                    exchange,
-                    500);
-        }
-    }
+			sendStatus(exchange, 500);
+		}
+	}
 
-    private void handleCancel(
-            HttpExchange exchange)
-            throws IOException {
+	private void handleCancel(HttpExchange exchange) throws IOException {
 
-        Map<String, String> query =
-                parseQuery(
-                        exchange.getRequestURI()
-                                .getRawQuery());
+		Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
 
-        String sessionId =
-                query.get("sessionId");
+		String sessionId = query.get("sessionId");
 
-        if (sessionId != null) {
+		if (sessionId != null) {
 
-            sessions.remove(
-                    sessionId);
-        }
+			sessions.remove(sessionId);
+		}
 
-        sendStatus(
-                exchange,
-                200);
-    }
+		sendStatus(exchange, 200);
+	}
 
-    private void handleInfo(
-            HttpExchange exchange)
-            throws IOException {
+	private void handleInfo(HttpExchange exchange) throws IOException {
 
-        if (!"GET".equalsIgnoreCase(
-                exchange.getRequestMethod())) {
+		if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
 
-            sendStatus(
-                    exchange,
-                    405);
+			sendStatus(exchange, 405);
 
-            return;
-        }
+			return;
+		}
 
-        sendJson(
-                exchange,
-                200,
-                createIdentityJson());
-    }
+		sendJson(exchange, 200, createIdentityJson());
+	}
 
-    private JSONObject createIdentityJson() {
+	private JSONObject createIdentityJson() {
 
-        JSONObject json =
-                new JSONObject();
+		JSONObject json = new JSONObject();
 
-        json.put(
-                "alias",
-                LocalSendIdentity.getAlias());
+		json.put("alias", LocalSendIdentity.getAlias());
 
-        json.put(
-                "version",
-                LocalSendProtocol.VERSION);
+		json.put("version", LocalSendProtocol.VERSION);
 
-        json.put(
-                "deviceModel",
-                LocalSendIdentity
-                        .getDeviceModel());
+		json.put("deviceModel", LocalSendIdentity.getDeviceModel());
 
-        json.put(
-                "deviceType",
-                LocalSendIdentity
-                        .getDeviceType());
+		json.put("deviceType", LocalSendIdentity.getDeviceType());
 
-        try {
+		try {
 
-            json.put(
-                    "fingerprint",
-                    LocalSendSslContext
-                            .getCertificateFingerprint());
+			json.put("fingerprint", LocalSendSslContext.getCertificateFingerprint());
 
-        } catch (Exception e) {
+		} catch (Exception e) {
 
-            json.put(
-                    "fingerprint",
-                    LocalSendIdentity
-                            .getFingerprint());
-        }
+			json.put("fingerprint", LocalSendIdentity.getFingerprint());
+		}
 
-        json.put(
-                "download",
-                false);
+		json.put("download", false);
 
-        return json;
-    }
+		return json;
+	}
 
-    private Path createSafePath(
-            String fileName) {
+	private Path createSafePath(String fileName) {
 
-        String safeName =
-                Path.of(fileName)
-                        .getFileName()
-                        .toString();
+		String safeName = Path.of(fileName).getFileName().toString();
 
-        return downloadDirectory
-                .resolve(safeName)
-                .normalize();
-    }
+		return downloadDirectory.resolve(safeName).normalize();
+	}
 
-    private String readBody(
-            HttpExchange exchange)
-            throws IOException {
+	private String readBody(HttpExchange exchange) throws IOException {
 
-        try (InputStream input =
-                     exchange.getRequestBody()) {
+		try (InputStream input = exchange.getRequestBody()) {
 
-            return new String(
-                    input.readAllBytes(),
-                    java.nio.charset.StandardCharsets
-                            .UTF_8);
-        }
-    }
+			return new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		}
+	}
 
-    private void sendJson(
-            HttpExchange exchange,
-            int status,
-            JSONObject json)
-            throws IOException {
+	private void sendJson(HttpExchange exchange, int status, JSONObject json) throws IOException {
 
-        byte[] data =
-                json.toString()
-                        .getBytes(
-                                java.nio.charset.StandardCharsets
-                                        .UTF_8);
+		byte[] data = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
-        Headers headers =
-                exchange.getResponseHeaders();
+		Headers headers = exchange.getResponseHeaders();
 
-        headers.set(
-                LocalSendProtocol
-                        .HEADER_CONTENT_TYPE,
-                LocalSendProtocol
-                        .CONTENT_TYPE_JSON);
+		headers.set(LocalSendProtocol.HEADER_CONTENT_TYPE, LocalSendProtocol.CONTENT_TYPE_JSON);
 
-        exchange.sendResponseHeaders(
-                status,
-                data.length);
+		exchange.sendResponseHeaders(status, data.length);
 
-        try (OutputStream output =
-                     exchange.getResponseBody()) {
+		try (OutputStream output = exchange.getResponseBody()) {
 
-            output.write(data);
-        }
-    }
+			output.write(data);
+		}
+	}
 
-    private void sendStatus(
-            HttpExchange exchange,
-            int status)
-            throws IOException {
+	private void sendStatus(HttpExchange exchange, int status) throws IOException {
 
-        exchange.sendResponseHeaders(
-                status,
-                -1);
+		exchange.sendResponseHeaders(status, -1);
 
-        exchange.close();
-    }
+		exchange.close();
+	}
 
-    private Map<String, String> parseQuery(
-            String query) {
+	private Map<String, String> parseQuery(String query) {
 
-        Map<String, String> result =
-                new HashMap<>();
+		Map<String, String> result = new HashMap<>();
 
-        if (query == null ||
-                query.isBlank()) {
+		if (query == null || query.isBlank()) {
 
-            return result;
-        }
+			return result;
+		}
 
-        for (String part :
-                query.split("&")) {
+		for (String part : query.split("&")) {
 
-            String[] pair =
-                    part.split(
-                            "=",
-                            2);
+			String[] pair = part.split("=", 2);
 
-            String key =
-                    java.net.URLDecoder.decode(
-                            pair[0],
-                            java.nio.charset.StandardCharsets
-                                    .UTF_8);
+			String key = java.net.URLDecoder.decode(pair[0], java.nio.charset.StandardCharsets.UTF_8);
 
-            String value =
-                    pair.length > 1
-                            ? java.net.URLDecoder.decode(
-                                    pair[1],
-                                    java.nio.charset.StandardCharsets
-                                            .UTF_8)
-                            : "";
+			String value = pair.length > 1
+					? java.net.URLDecoder.decode(pair[1], java.nio.charset.StandardCharsets.UTF_8)
+					: "";
 
-            result.put(
-                    key,
-                    value);
-        }
+			result.put(key, value);
+		}
 
-        return result;
-    }
+		return result;
+	}
 
-    private static class Session {
+	private static class Session {
 
-        final String id;
+		final String id;
 
-        final String remoteAddress;
+		final String remoteAddress;
 
-        final Map<String, PendingFile> files =
-                new ConcurrentHashMap<>();
+		final Map<String, PendingFile> files = new ConcurrentHashMap<>();
 
-        Session(
-                String id,
-                String remoteAddress) {
+		Session(String id, String remoteAddress) {
 
-            this.id = id;
+			this.id = id;
 
-            this.remoteAddress =
-                    remoteAddress;
-        }
+			this.remoteAddress = remoteAddress;
+		}
 
-        boolean allReceived() {
+		boolean allReceived() {
 
-            return files.values()
-                    .stream()
-                    .allMatch(
-                            file -> file.received);
-        }
-    }
+			return files.values().stream().allMatch(file -> file.received);
+		}
+	}
 
-    private static class PendingFile {
+	private static class PendingFile {
 
-        final String id;
+		final String id;
 
-        final String token;
+		final String token;
 
-        final String fileName;
+		final String fileName;
 
-        final long size;
+		final long size;
 
-        volatile boolean received;
+		volatile boolean received;
 
-        PendingFile(
-                String id,
-                String token,
-                String fileName,
-                long size) {
+		PendingFile(String id, String token, String fileName, long size) {
 
-            this.id = id;
+			this.id = id;
 
-            this.token = token;
+			this.token = token;
 
-            this.fileName = fileName;
+			this.fileName = fileName;
 
-            this.size = size;
-        }
-    }
+			this.size = size;
+		}
+	}
 }

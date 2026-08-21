@@ -18,7 +18,7 @@ public enum Icons {
 	PLAY_WHITE("play-white.png"), PAUSE_WHITE("pause-white.png"), SAVE("save.png"), COPY("copy.png"),
 	SHARE("share.png"), CHECK_GREEN("check-green.png"), DRAG("drag.png"), WHATSAPP("whatsapp.png"),
 	TELEGRAM("telegram.png"), TWITTER("twitter.png"), EMAIL("email.png"), RECTANGLE("rectangle.png"), WINDOW("window.png"),
-	ENTIRE_SCREEN("full-screen.png"), DROPPER("dropper.png");
+	ENTIRE_SCREEN("full-screen.png"), DROPPER("dropper.png"), FOLDER("folder.png"), IMAGE("image.png");
 
 	private static final String BASE_PATH = "/com/oranbyte/screenrec/icons/";
 
