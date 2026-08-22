@@ -50,7 +50,7 @@ public class TestShare extends JFrame {
 
             
             String filePath = "C:\\Users\\Shubham\\Desktop\\sql.png";
-            TestShare frame = new TestShare(new File(filePath));
+            TestShare frame = new TestShare(new File(videoPath));
             frame.setVisible(true);
         });
     }
