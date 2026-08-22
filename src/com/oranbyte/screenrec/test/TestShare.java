@@ -1,6 +1,5 @@
 package com.oranbyte.screenrec.test;
  
-import java.awt.Desktop;
 import java.io.File;
 
 import javax.swing.JButton;
@@ -13,9 +12,16 @@ import com.oranbyte.screenrec.gui.ShareDialog;
 
 public class TestShare extends JFrame {
  
-    public TestShare(File file) {
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public TestShare(File file) {
          
     	new AppUI();
+    	
+    	
     	
 		JButton button = new JButton("click me");
 		button.addActionListener(e -> {
@@ -40,13 +46,10 @@ public class TestShare extends JFrame {
     	
     	
         SwingUtilities.invokeLater(() -> {
-            String videoPath =
-                    "C:\\Users\\Shubham\\Videos\\REACT AUTH\\2- React User Login and Authentication with Axios_720p.mp4";
+            String videoPath = "C:\\Users\\Shubham\\Videos\\REACT AUTH\\2- React User Login and Authentication with Axios_720p.mp4";
 
             
-            String filePath = 
-            		
-            	"C:\\Users\\Shubham\\Desktop\\sql.png";
+            String filePath = "C:\\Users\\Shubham\\Desktop\\sql.png";
             TestShare frame = new TestShare(new File(filePath));
             frame.setVisible(true);
         });

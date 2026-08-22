@@ -204,6 +204,7 @@ public class ShareDialog extends JDialog {
 				ex.printStackTrace();
 			}
 		}); 
+		
 		buttonPanel.add(nearbySharing);
 		buttonPanel.add(fileManager);
 		buttonPanel.add(mediaViewer); 
@@ -362,6 +363,7 @@ public class ShareDialog extends JDialog {
 			return;
 		try {
 			String os = System.getProperty("os.name").toLowerCase();
+			
 			if (os.contains("win")) {
 				new ProcessBuilder("explorer.exe", "/select,", file.getAbsolutePath()).start();
 			} else if (os.contains("mac")) {
