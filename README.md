@@ -23,6 +23,7 @@ A lightweight screen recorder application built with **Java Swing**, providing s
 * **JNA / JNA Platform** — Native Windows API integration
 * **WASAPI** — Windows audio capture
 * **LocalSend** — Local network file sharing
+* **Snoretoast** — show notifications
 
 ## Project Structure
 

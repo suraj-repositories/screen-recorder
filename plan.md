@@ -1,7 +1,7 @@
 
 ## On way Features
 
-1. sound listener
+1. sound listener -- done - for windows
 
 	Windows
 	Capture system audio via WASAPI (native API)

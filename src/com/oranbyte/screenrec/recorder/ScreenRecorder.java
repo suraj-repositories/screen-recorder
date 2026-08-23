@@ -53,7 +53,7 @@ public class ScreenRecorder {
 	private volatile boolean isMicrophoneEnabled = false;
 	private volatile boolean isSpeakerEnabled = true;
 
-	private static volatile int TARGET_FPS = 50;
+	private static volatile int TARGET_FPS = AppConstant.FPS;
 
 	private volatile long startTime;
 	private final AtomicLong totalPausedTime = new AtomicLong(0);

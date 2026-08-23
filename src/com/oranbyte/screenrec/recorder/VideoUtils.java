@@ -9,8 +9,7 @@ public class VideoUtils {
 	public static void showSaveDialog(String filePath) {
 		IContainer container = IContainer.make();
 		int result = container.open(filePath, IContainer.Type.READ, null);
-
-		System.out.println("here" + result);
+ 
 		if (result < 0) {
 			JOptionPane.showMessageDialog(null, "Failed to open saved video.", "Error", JOptionPane.ERROR_MESSAGE);
 		} else {

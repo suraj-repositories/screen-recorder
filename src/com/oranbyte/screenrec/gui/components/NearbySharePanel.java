@@ -3,14 +3,18 @@ package com.oranbyte.screenrec.gui.components;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagLayout;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.io.File;
 import java.util.List;
 
@@ -19,12 +23,12 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
@@ -46,13 +50,10 @@ public class NearbySharePanel extends JPanel {
 	private static final long serialVersionUID = 1L;
 
 	private static final Color CARD_BG = AppColors.CARD_BG;
-	private static final Color PRIMARY_COLOR = AppColors.PRIMARY;
-	private static final Color NEUTRAL_COLOR = AppColors.NEUTRAL_COLOR;
-	private static final Color NEUTRAL_HOVER = AppColors.NEUTRAL_HOVER;
 	private static final Color TEXT_PRIMARY = AppColors.TEXT;
 	private static final Color TEXT_SECONDARY = AppColors.TEXT_SECONDARY;
 
-	private static final int MAX_RELOAD_COUNT = 20;
+	private static final int MAX_RELOAD_COUNT = AppConstant.NEARBY_SCAN_TIMEOUT;
 
 	private final ShareDialog dialog;
 	private final File file;
@@ -130,11 +131,7 @@ public class NearbySharePanel extends JPanel {
 		refreshBtn.setHasBorder(false);
 		refreshBtn.setToolTipText("Scan devices");
 		refreshBtn.addActionListener(e -> {
-			if (isScanning) {
-				stopDiscovery();
-			} else {
-				startDiscovery();
-			}
+			startDiscovery(); // Always restarts scan on click, clearing old list
 		});
 
 		headerRow.add(header, BorderLayout.WEST);
@@ -143,8 +140,7 @@ public class NearbySharePanel extends JPanel {
 
 		topPanel.add(Box.createVerticalStrut(10));
 		topPanel.add(createFileCard());
-
-		topPanel.add(Box.createVerticalStrut(15));
+ 
 
 		add(topPanel, BorderLayout.NORTH);
 	}
@@ -233,20 +229,45 @@ public class NearbySharePanel extends JPanel {
 		centerPanel.add(statusLabel, BorderLayout.NORTH);
 
 		deviceListModel = new DefaultListModel<>();
+
 		deviceList = new JList<>(deviceListModel);
 		deviceList.setCellRenderer(new DeviceListCellRenderer());
-		deviceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		deviceList.setBackground(ShareDialog.BG);
-		deviceList.setFixedCellHeight(65);
+		deviceList.setFocusable(false);
+		deviceList.setFixedCellHeight(76);
 
 		deviceList.addMouseListener(new MouseAdapter() {
 			@Override
+			public void mousePressed(MouseEvent e) {
+				deviceList.clearSelection();
+			}
+
+			@Override
 			public void mouseClicked(MouseEvent e) {
+				deviceList.clearSelection();
 				int index = deviceList.locationToIndex(e.getPoint());
 				if (index != -1) {
-					ShareDevice device = deviceListModel.getElementAt(index);
-					sendFileToDevice(device);
+					Rectangle bounds = deviceList.getCellBounds(index, index);
+					if (bounds.contains(e.getPoint()) && isOverSendButton(e, bounds)) {
+						ShareDevice selectedDevice = deviceListModel.getElementAt(index);
+						sendFileToDevice(selectedDevice);
+					}
 				}
+			}
+		});
+
+		deviceList.addMouseMotionListener(new MouseMotionAdapter() {
+			@Override
+			public void mouseMoved(MouseEvent e) {
+				int index = deviceList.locationToIndex(e.getPoint());
+				if (index != -1) {
+					Rectangle bounds = deviceList.getCellBounds(index, index);
+					if (bounds.contains(e.getPoint()) && isOverSendButton(e, bounds)) {
+						deviceList.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+						return;
+					}
+				}
+				deviceList.setCursor(Cursor.getDefaultCursor());
 			}
 		});
 
@@ -258,8 +279,19 @@ public class NearbySharePanel extends JPanel {
 		add(centerPanel, BorderLayout.CENTER);
 	}
 
+	private boolean isOverSendButton(MouseEvent e, Rectangle bounds) {
+		int buttonSize = 36;
+		int paddingRight = 12;
+		Rectangle buttonBounds = new Rectangle(
+				bounds.x + bounds.width - buttonSize - paddingRight,
+				bounds.y + (bounds.height - buttonSize) / 2,
+				buttonSize,
+				buttonSize);
+		return buttonBounds.contains(e.getPoint());
+	}
+
 	private void startDiscovery() {
-		stopDiscovery();
+		stopDiscovery(); 
 
 		isScanning = true;
 		scanCount = 0;
@@ -267,17 +299,18 @@ public class NearbySharePanel extends JPanel {
 		rotationTimer.start();
 
 		statusLabel.setText("Scanning for nearby devices...");
-		deviceListModel.clear();
+		deviceListModel.clear();  
 
 		discoveryWorker = new SwingWorker<>() {
 			@Override
 			protected Void doInBackground() throws Exception {
 				while (!isCancelled() && scanCount < MAX_RELOAD_COUNT) {
 					List<ShareDevice> devices = manager.getDevices();
-					if (devices != null) {
+					if (devices != null && !devices.isEmpty()) {
 						for (ShareDevice device : devices) {
 							publish(device);
-						}
+						} 
+						break;
 					}
 					scanCount++;
 					Thread.sleep(2000);
@@ -290,18 +323,19 @@ public class NearbySharePanel extends JPanel {
 				for (ShareDevice device : chunks) {
 					if (!deviceListModel.contains(device)) {
 						deviceListModel.addElement(device);
-						revalidate();
-						repaint();
 					}
+				}
+				if (!deviceListModel.isEmpty()) {
+					updateStatusAfterScan();
 				}
 			}
 
 			@Override
 			protected void done() {
-				if (!isCancelled() && scanCount >= MAX_RELOAD_COUNT) {
+				if (!isCancelled()) {
 					SwingUtilities.invokeLater(() -> {
-						stopDiscovery();
-						statusLabel.setText("Scan complete (Max limit reached). Click refresh to rescan.");
+						stopScanningState();
+						updateStatusAfterScan();
 					});
 				}
 			}
@@ -313,19 +347,31 @@ public class NearbySharePanel extends JPanel {
 		}
 	}
 
-	private void stopDiscovery() {
+	private void updateStatusAfterScan() {
+		int count = deviceListModel.getSize();
+		if (count == 0) {
+			statusLabel.setText("No devices found.");
+		} else {
+			statusLabel.setText("Found " + count + " device" + (count > 1 ? "s" : "") + ".");
+		}
+	}
+
+	private void stopScanningState() {
 		isScanning = false;
 		if (rotationTimer != null && rotationTimer.isRunning()) {
 			rotationTimer.stop();
-		}
-		if (discoveryWorker != null && !discoveryWorker.isDone()) {
-			discoveryWorker.cancel(true);
 		}
 		if (refreshBtn != null) {
 			refreshBtn.repaint();
 			refreshBtn.setToolTipText("Scan devices");
 		}
-		statusLabel.setText("Scanning paused.");
+	}
+
+	private void stopDiscovery() {
+		stopScanningState();
+		if (discoveryWorker != null && !discoveryWorker.isDone()) {
+			discoveryWorker.cancel(true);
+		}
 	}
 
 	private void sendFileToDevice(ShareDevice device) {
@@ -343,43 +389,19 @@ public class NearbySharePanel extends JPanel {
 		}
 	}
 
-	private JButton createStyledButton(String text, Color bg, Color fg) {
-		JButton btn = new JButton(text) {
-			private static final long serialVersionUID = 1L;
+	private ImageIcon resolveDeviceIcon(ShareDevice device) {
+		if (device == null || device.getDeviceType() == null) {
+			return Icons.DESKTOP != null ? Icons.DESKTOP.icon(28) : null;
+		}
 
-			@Override
-			protected void paintComponent(Graphics g) {
-				Graphics2D g2 = (Graphics2D) g.create();
-				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-				g2.setColor(getBackground());
-				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-				g2.dispose();
-				super.paintComponent(g);
-			}
-		};
-		btn.setFont(AppConstant.APP_FONT.deriveFont(Font.BOLD, 12f));
-		btn.setForeground(fg);
-		btn.setBackground(bg);
-		btn.setFocusable(false);
-		btn.setContentAreaFilled(false);
-		btn.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 12, 8, 12));
-		btn.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
-
-		btn.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseEntered(MouseEvent e) {
-				if (bg.equals(NEUTRAL_COLOR)) {
-					btn.setBackground(NEUTRAL_HOVER);
-				}
-			}
-
-			@Override
-			public void mouseExited(MouseEvent e) {
-				btn.setBackground(bg);
-			}
-		});
-
-		return btn;
+		String type = device.getDeviceType().toLowerCase();
+		if (type.contains("mobile") || type.contains("phone") || type.contains("android") || type.contains("iphone")) {
+			return Icons.PHONE != null ? Icons.PHONE.icon(28) : null;
+		} else if (type.contains("tablet") || type.contains("ipad")) {
+			return Icons.TABLET != null ? Icons.TABLET.icon(28) : null;
+		} else {
+			return Icons.DESKTOP != null ? Icons.DESKTOP.icon(28) : null;
+		}
 	}
 
 	private class RotatingToolbarButton extends ToolbarButton {
@@ -410,9 +432,10 @@ public class NearbySharePanel extends JPanel {
 		@Override
 		public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
 				boolean cellHasFocus) {
+
 			ShareDevice device = (ShareDevice) value;
 
-			JPanel itemPanel = new JPanel(new BorderLayout(10, 0)) {
+			JPanel itemPanel = new JPanel(new BorderLayout(12, 0)) {
 
 				private static final long serialVersionUID = 1L;
 
@@ -420,36 +443,77 @@ public class NearbySharePanel extends JPanel {
 				protected void paintComponent(Graphics g) {
 					Graphics2D g2 = (Graphics2D) g.create();
 					g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-					g2.setColor(isSelected ? new Color(218, 232, 255) : CARD_BG);
-					g2.fillRoundRect(0, 2, getWidth(), getHeight() - 4, 10, 10);
+
+					int arc = 12;
+					int x = 1;
+					int y = 3;
+					int width = getWidth() - 3;
+					int height = getHeight() - 7;
+
+					g2.setColor(CARD_BG);
+					g2.fillRoundRect(x, y, width, height, arc, arc);
+
+					g2.setColor(AppColors.BORDER);
+					g2.drawRoundRect(x, y, width, height, arc, arc);
+
 					g2.dispose();
 				}
 			};
+
 			itemPanel.setOpaque(false);
-			itemPanel.setBorder(new EmptyBorder(8, 12, 8, 12));
+
+			itemPanel.setBorder(BorderFactory.createCompoundBorder(
+					BorderFactory.createEmptyBorder(4, 2, 4, 2),
+					BorderFactory.createEmptyBorder(6, 12, 6, 12)));
+
+			JLabel deviceIconLabel = new JLabel(resolveDeviceIcon(device));
+			deviceIconLabel.setVerticalAlignment(SwingConstants.CENTER);
+			itemPanel.add(deviceIconLabel, BorderLayout.WEST);
 
 			JPanel textContainer = new JPanel();
 			textContainer.setLayout(new BoxLayout(textContainer, BoxLayout.Y_AXIS));
 			textContainer.setOpaque(false);
 
-			JLabel nameLabel = new JLabel(device.getName());
+			JLabel nameLabel = new JLabel(device != null ? device.getName() : "Unknown");
 			nameLabel.setFont(AppConstant.APP_FONT.deriveFont(Font.BOLD, 14f));
 			nameLabel.setForeground(TEXT_PRIMARY);
+			nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-			JLabel detailsLabel = new JLabel(device.getAddress() + ":" + device.getPort());
+			String addressText = (device != null) ? (device.getAddress() + ":" + device.getPort()) : "";
+			JLabel detailsLabel = new JLabel(addressText);
 			detailsLabel.setFont(AppConstant.APP_FONT.deriveFont(11f));
 			detailsLabel.setForeground(TEXT_SECONDARY);
+			detailsLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+			textContainer.add(Box.createVerticalGlue());
 			textContainer.add(nameLabel);
-			textContainer.add(Box.createVerticalStrut(2));
+			textContainer.add(Box.createVerticalStrut(3));
 			textContainer.add(detailsLabel);
+			textContainer.add(Box.createVerticalGlue());
 
 			itemPanel.add(textContainer, BorderLayout.CENTER);
 
-			JLabel sendLabel = new JLabel("Send ");
-			sendLabel.setFont(AppConstant.APP_FONT.deriveFont(Font.BOLD, 12f));
-			sendLabel.setForeground(PRIMARY_COLOR);
-			itemPanel.add(sendLabel, BorderLayout.EAST);
+			ToolbarButton sendButton = new ToolbarButton(Icons.UPLOAD, 22);
+			sendButton.setToolTipText("Send to " + (device != null ? device.getName() : "device"));
+			sendButton.setFocusable(false);
+			sendButton.setPadding(0, 0, 0, 0);
+			sendButton.setHoverBackgroundColor(AppColors.GRAY_100);
+			sendButton.setHorizontalAlignment(SwingConstants.CENTER);
+			sendButton.setVerticalAlignment(SwingConstants.CENTER);
+
+			sendButton.setHorizontalTextPosition(SwingConstants.CENTER);
+			sendButton.setVerticalTextPosition(SwingConstants.CENTER);
+
+			int btnSize = 32;
+			sendButton.setPreferredSize(new Dimension(btnSize, btnSize));
+			sendButton.setMaximumSize(new Dimension(btnSize, btnSize));
+			sendButton.setMinimumSize(new Dimension(btnSize, btnSize));
+
+			JPanel actionWrapper = new JPanel(new GridBagLayout());
+			actionWrapper.setOpaque(false);
+			actionWrapper.add(sendButton);
+
+			itemPanel.add(actionWrapper, BorderLayout.EAST);
 
 			return itemPanel;
 		}
