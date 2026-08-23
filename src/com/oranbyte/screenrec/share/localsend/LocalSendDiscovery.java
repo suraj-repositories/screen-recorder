@@ -9,6 +9,7 @@ import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.StandardSocketOptions;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +17,10 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import org.json.JSONObject;
 
@@ -44,6 +49,17 @@ public class LocalSendDiscovery {
 		running = true;
 		startMulticastListeners();
 		startAnnouncementThread();
+
+		Thread scanThread = new Thread(() -> {
+			String localIp = getLocalIpAddress();
+			if (localIp != null) {
+				System.out.println("Starting LocalSend active subnet scan on: " + localIp);
+				scanSubnet(localIp);
+			}
+		}, "LocalSend-SubnetScan");
+
+		scanThread.setDaemon(true);
+		scanThread.start();
 	}
 
 	public synchronized void stop() {
@@ -86,12 +102,6 @@ public class LocalSendDiscovery {
 					System.out.println("Starting LocalSend discovery on: " + networkInterface.getName() + " - "
 							+ networkInterface.getDisplayName());
 
-//					MulticastSocket socket = new MulticastSocket(null);
-//					socket.setReuseAddress(true);
-//					socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-//					socket.bind(new InetSocketAddress(port));
-//					socket.joinGroup(new InetSocketAddress(group, port), networkInterface);
-
 					Inet4Address ipv4 = Collections.list(networkInterface.getInetAddresses()).stream()
 							.filter(Inet4Address.class::isInstance).map(Inet4Address.class::cast).findFirst()
 							.orElse(null);
@@ -100,13 +110,12 @@ public class LocalSendDiscovery {
 						continue;
 					}
 
-					InetSocketAddress localAddress = new InetSocketAddress(ipv4, port);
+					InetSocketAddress bindAddress = new InetSocketAddress(port);
 					MulticastSocket socket = new MulticastSocket(null);
 					socket.setReuseAddress(true);
 					socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-					socket.bind(localAddress);
+					socket.bind(bindAddress);
 					socket.joinGroup(new InetSocketAddress(group, port), networkInterface);
-
 					synchronized (sockets) {
 						sockets.add(socket);
 					}
@@ -133,21 +142,12 @@ public class LocalSendDiscovery {
 	}
 
 	private boolean isUsableInterface(NetworkInterface networkInterface) throws SocketException {
-
-		if (!networkInterface.isUp()) {
-			return false;
-		}
-
-		if (networkInterface.isLoopback()) {
-			return false;
-		}
-
-		if (!networkInterface.supportsMulticast()) {
+		if (!networkInterface.isUp() || networkInterface.isLoopback() || !networkInterface.supportsMulticast()) {
 			return false;
 		}
 
 		return Collections.list(networkInterface.getInetAddresses()).stream()
-				.anyMatch(address -> address instanceof java.net.Inet4Address);
+				.anyMatch(addr -> addr instanceof Inet4Address || addr instanceof java.net.Inet6Address);
 	}
 
 	private void listen(MulticastSocket socket) {
@@ -200,6 +200,10 @@ public class LocalSendDiscovery {
 			boolean announce = json.optBoolean("announce", false);
 			String address = packet.getAddress().getHostAddress();
 
+			if (address.contains("%")) {
+				address = address.substring(0, address.indexOf("%"));
+			}
+
 			if (announce) {
 				sendMulticastResponse(packet.getAddress());
 			} else {
@@ -215,11 +219,16 @@ public class LocalSendDiscovery {
 	}
 
 	private void addDevice(String address, JSONObject json) {
-
 		LocalSendDevice device = LocalSendDevice.fromJson(address, json);
-		if (!device.getFingerprint().isBlank()) {
-			devices.put(device.getFingerprint(), device);
+		String myFingerprint = LocalSendIdentity.getFingerprint();
+
+		// Ignore self-discovery from loopback or IP scans
+		if (device.getFingerprint().isBlank() || device.getFingerprint().equals(myFingerprint)) {
+			return;
 		}
+
+		devices.put(device.getFingerprint(), device);
+		System.out.println("Valid external device added: " + device.getName() + " @ " + address);
 	}
 
 	private void sendMulticastResponse(InetAddress destination) {
@@ -289,6 +298,70 @@ public class LocalSendDiscovery {
 				System.err.println("Unable to send LocalSend announcement: " + e.getMessage());
 			}
 		}
+	}
+
+	public void scanSubnet(String localIp) {
+		if (localIp == null || localIp.isBlank())
+			return;
+
+		String subnet = localIp.substring(0, localIp.lastIndexOf('.'));
+		ExecutorService scanExecutor = Executors.newFixedThreadPool(30);
+
+		for (int i = 1; i < 255; i++) {
+			String targetIp = subnet + "." + i;
+
+			if (targetIp.equals(localIp))
+				continue;
+
+			scanExecutor.submit(() -> checkDeviceAtIp(targetIp));
+		}
+		scanExecutor.shutdown();
+	}
+
+	private void checkDeviceAtIp(String ip) {
+	    try {
+	        URL url = new URL("https://" + ip + ":" + port + LocalSendProtocol.INFO_PATH);
+	        
+	        HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+	        conn.setConnectTimeout(1000);
+	        conn.setReadTimeout(1000); 
+	        conn.setSSLSocketFactory(LocalSendSslContext.createClientContext().getSocketFactory());
+	        conn.setHostnameVerifier((hostname, session) -> true);
+
+	        if (conn.getResponseCode() == 200) {
+	            String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+	            JSONObject json = new JSONObject(body);
+	            addDevice(ip, json);
+	            System.out.println("LocalSend device discovered via direct IP: " + ip);
+	        }
+	    } catch (java.net.SocketTimeoutException e) {
+	         
+	    } catch (java.net.ConnectException e) {
+	        
+	    } catch (Exception e) {
+	        System.err.println("Direct IP connection failed to " + ip + ": " + e.getMessage());
+	    }
+	}
+
+	private String getLocalIpAddress() {
+		try {
+			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+				NetworkInterface ni = interfaces.nextElement();
+				if (!isUsableInterface(ni))
+					continue;
+
+				Enumeration<InetAddress> addresses = ni.getInetAddresses();
+				while (addresses.hasMoreElements()) {
+					InetAddress addr = addresses.nextElement();
+					if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+						return addr.getHostAddress();
+					}
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return null;
 	}
 
 	private JSONObject createDeviceJson() {

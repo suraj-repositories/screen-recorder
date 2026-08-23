@@ -193,17 +193,13 @@ public class LocalSendServer {
 	private void handleUpload(HttpExchange exchange) throws IOException {
 
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-
 			sendStatus(exchange, 405);
 			return;
 		}
 
 		Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
-
 		String sessionId = query.get("sessionId");
-
 		String fileId = query.get("fileId");
-
 		String token = query.get("token");
 
 		if (sessionId == null || fileId == null || token == null) {
@@ -213,30 +209,24 @@ public class LocalSendServer {
 		}
 
 		Session session = sessions.get(sessionId);
-
 		if (session == null) {
 			sendStatus(exchange, 403);
 			return;
 		}
 
 		String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
-
 		if (!session.remoteAddress.equals(remoteAddress)) {
-
 			sendStatus(exchange, 403);
 			return;
 		}
 
 		PendingFile file = session.files.get(fileId);
-
 		if (file == null || !file.token.equals(token)) {
-
 			sendStatus(exchange, 403);
 			return;
 		}
 
 		Path target = createSafePath(file.fileName);
-
 		Path temporary = target.resolveSibling(target.getFileName() + ".part");
 
 		try {
@@ -244,17 +234,11 @@ public class LocalSendServer {
 			long received = 0;
 
 			try (InputStream input = exchange.getRequestBody();
-
 					OutputStream output = Files.newOutputStream(temporary)) {
-
 				byte[] buffer = new byte[1024 * 1024];
-
 				int read;
-
 				while ((read = input.read(buffer)) != -1) {
-
 					output.write(buffer, 0, read);
-
 					received += read;
 				}
 			}
@@ -271,26 +255,18 @@ public class LocalSendServer {
 			}
 
 			Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-
 			file.received = true;
-
 			System.out.println("LocalSend received: " + target);
-
 			sendStatus(exchange, 200);
 
 			if (session.allReceived()) {
-
 				sessions.remove(sessionId);
 			}
 
 		} catch (Exception e) {
-
 			Files.deleteIfExists(temporary);
-
 			System.err.println("LocalSend upload error: " + e.getMessage());
-
 			e.printStackTrace();
-
 			sendStatus(exchange, 500);
 		}
 	}
@@ -331,26 +307,16 @@ public class LocalSendServer {
 		JSONObject json = new JSONObject();
 
 		json.put("alias", LocalSendIdentity.getAlias());
-
 		json.put("version", LocalSendProtocol.VERSION);
-
 		json.put("deviceModel", LocalSendIdentity.getDeviceModel());
-
 		json.put("deviceType", LocalSendIdentity.getDeviceType());
-
 		try {
-
 			json.put("fingerprint", LocalSendSslContext.getCertificateFingerprint());
-
 		} catch (Exception e) {
-
 			json.put("fingerprint", LocalSendIdentity.getFingerprint());
 		}
-
 		json.put("port", port);
-
 		json.put("protocol", LocalSendProtocol.PROTOCOL_HTTPS);
-
 		json.put("download", false);
 
 		return json;
@@ -404,13 +370,9 @@ public class LocalSendServer {
 		}
 
 		for (String part : query.split("&")) {
-
 			String[] pair = part.split("=", 2);
-
 			String key = java.net.URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
-
 			String value = pair.length > 1 ? java.net.URLDecoder.decode(pair[1], StandardCharsets.UTF_8) : "";
-
 			result.put(key, value);
 		}
 
@@ -425,13 +387,11 @@ public class LocalSendServer {
 		final Map<String, PendingFile> files = new ConcurrentHashMap<>();
 
 		Session(String id, String remoteAddress) {
-
 			this.id = id;
 			this.remoteAddress = remoteAddress;
 		}
 
 		boolean allReceived() {
-
 			return files.values().stream().allMatch(file -> file.received);
 		}
 	}

@@ -30,6 +30,7 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.basic.BasicPopupMenuUI;
 
+import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
@@ -53,6 +54,7 @@ public class VideoPlayerPanel extends JPanel {
 	private static final Icons PLAY_ICON = Icons.PLAY_WHITE;
 	private static final Icons PAUSE_ICON = Icons.PAUSE_WHITE;
 	private static final Icons SPEAKER_ICON = Icons.SPEAKER;
+	
 
 	private static final int DEFAULT_ICON_SIZE = 24;
 	private static final int CONTROL_HEIGHT = 56;
@@ -167,7 +169,8 @@ public class VideoPlayerPanel extends JPanel {
 		controlsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
 		playPauseButton = new ToolbarButton(PLAY_ICON, DEFAULT_ICON_SIZE);
-		playPauseButton.setOpaque(false);
+		playPauseButton.setOpaque(false); 
+		playPauseButton.setTransprent();
 		playPauseButton.setContentAreaFilled(false);
 		playPauseButton.setBorderPainted(false);
 		playPauseButton.setFocusPainted(false);
@@ -196,6 +199,7 @@ public class VideoPlayerPanel extends JPanel {
 		volumeButton.setBorderPainted(false);
 		volumeButton.setFocusPainted(false);
 		volumeButton.setBorder(null);
+		volumeButton.setTransprent();
 
 		volumeButton.addActionListener(e -> {
 			if (mediaPlayer == null) {
@@ -288,6 +292,7 @@ public class VideoPlayerPanel extends JPanel {
 		muteButton.setOpaque(false);
 		muteButton.setContentAreaFilled(false);
 		muteButton.setBorderPainted(false);
+		muteButton.setTransprent();
 		muteButton.setFocusPainted(false);
 		muteButton.setBorder(null);
 		muteButton.addActionListener(e -> {

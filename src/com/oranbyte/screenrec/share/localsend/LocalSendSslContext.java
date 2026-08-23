@@ -19,6 +19,7 @@ import java.util.HexFormat;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import org.bouncycastle.asn1.x500.X500Name;
@@ -58,15 +59,45 @@ public final class LocalSendSslContext {
 		return context;
 	}
 
-	public static SSLContext createClientContext(String expectedFingerprint) throws Exception {
+//	public static SSLContext createClientContext(String expectedFingerprint) throws Exception {
+//
+//		X509TrustManager trustManager = new FingerprintTrustManager(expectedFingerprint);
+//
+//		SSLContext context = SSLContext.getInstance("TLS");
+//
+//		context.init(null, new X509TrustManager[] { trustManager }, new SecureRandom());
+//
+//		return context;
+//	}
+	
+	public static SSLContext createClientContext() throws Exception { 
+	    X509TrustManager promiscuousTrustManager = new X509TrustManager() {
+	        @Override
+	        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
 
-		X509TrustManager trustManager = new FingerprintTrustManager(expectedFingerprint);
+	        @Override
+	        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
 
-		SSLContext context = SSLContext.getInstance("TLS");
+	        @Override
+	        public X509Certificate[] getAcceptedIssuers() {
+	            return new X509Certificate[0];
+	        }
+	    };
 
-		context.init(null, new X509TrustManager[] { trustManager }, new SecureRandom());
+	    SSLContext context = SSLContext.getInstance("TLS");
+	    context.init(null, new TrustManager[]{ promiscuousTrustManager }, new SecureRandom());
+	    return context;
+	}
 
-		return context;
+	public static SSLContext createClientContext(String expectedFingerprint) throws Exception { 
+	    if (expectedFingerprint == null || expectedFingerprint.isBlank()) {
+	        return createClientContext();
+	    }
+
+	    X509TrustManager trustManager = new FingerprintTrustManager(expectedFingerprint);
+	    SSLContext context = SSLContext.getInstance("TLS");
+	    context.init(null, new TrustManager[]{ trustManager }, new SecureRandom());
+	    return context;
 	}
 
 	public static String getCertificateFingerprint() throws Exception {

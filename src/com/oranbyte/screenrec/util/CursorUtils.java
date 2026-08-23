@@ -22,9 +22,7 @@ public final class CursorUtils {
 	public static class CURSORINFO extends Structure {
 		public int cbSize;
 		public int flags;
-
 		public HICON hCursor;
-
 		public POINT ptScreenPos;
 
 		public CURSORINFO() {

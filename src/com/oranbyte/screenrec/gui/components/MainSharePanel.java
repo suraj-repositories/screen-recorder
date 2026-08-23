@@ -48,10 +48,10 @@ import com.oranbyte.screenrec.util.FileUtil;
 public class MainSharePanel extends JPanel implements Scrollable {
 
     private static final long serialVersionUID = 1L;
-    private static final Color CARD = Color.WHITE;
+    private static final Color CARD = AppColors.WHITE;
     private static final Color BORDER = new Color(228, 230, 236);
     private static final Color TEXT = new Color(30, 30, 34);
-    private static final Color MUTED = new Color(130, 130, 138);
+    private static final Color MUTED = AppColors.TEXT_MUTED;
 
     private final ShareDialog dialog;
     private final File file;
@@ -89,7 +89,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
         card.setPreferredSize(new Dimension(200, 72));
 
-        JLabel icon = new JLabel(scaleIcon(resolveFileIcon(), 32));
+        JLabel icon = new JLabel(FileUtil.resolveFileIcon(file, 32));
         icon.setBorder(new EmptyBorder(0, 0, 0, 6));
         icon.setVerticalAlignment(SwingConstants.CENTER);
 
@@ -103,7 +103,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
         }
 
         JLabel name = new JLabel(fileName);
-        name.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        name.setFont(AppConstant.APP_FONT.deriveFont(14f));
         name.setForeground(TEXT);
         name.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -114,7 +114,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
         }
 
         JLabel size = new JLabel(fileSize);
-        size.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        size.setFont(AppConstant.APP_FONT.deriveFont(12f));
         size.setForeground(MUTED);
         size.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -205,6 +205,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
     private ToolbarButton createShareButton(String text, Icons icon, ActionListener listener) {
         ToolbarButton button = new ToolbarButton(text, icon, 24);
         button.setFocusable(false);
+        button.setBackgroundColor(AppColors.WHITE); 
         button.addActionListener(listener);
         button.setHorizontalAlignment(SwingConstants.CENTER);
         button.setVerticalAlignment(SwingConstants.CENTER);
@@ -227,6 +228,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
         btn.setBackgroundColor(null);
         btn.setBorderRadius(10);
         btn.setHoverBackgroundColor(AppColors.GRAY_200);
+        btn.setSize(btn.getWidth(), btn.getWidth());
 
         return btn;
     }
@@ -318,32 +320,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
-    private Icon resolveFileIcon() {
-        if (file == null) return new ImageIcon();
-        try {
-            Icon systemIcon = FileSystemView.getFileSystemView().getSystemIcon(file);
-            if (systemIcon != null) return systemIcon;
-        } catch (Exception ignored) {}
-        return new ImageIcon();
-    }
-
-    private static Icon scaleIcon(Icon icon, int targetWidth) {
-        if (icon == null) return null;
-        int srcW = icon.getIconWidth();
-        int srcH = icon.getIconHeight();
-        double scale = (double) targetWidth / srcW;
-        int targetHeight = (int) Math.round(srcH * scale);
-
-        BufferedImage image = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = image.createGraphics();
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.scale(scale, scale);
-        icon.paintIcon(null, g2, 0, 0);
-        g2.dispose();
-        return new ImageIcon(image);
-    }
+   
 
     @Override
     public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
@@ -360,28 +337,5 @@ public class MainSharePanel extends JPanel implements Scrollable {
     @Override
     public boolean getScrollableTracksViewportHeight() { return false; }
 
-    private static class RoundedPanel extends JPanel {
-        private static final long serialVersionUID = 1L;
-        private final int radius;
-        private Color borderColor = BORDER;
-
-        RoundedPanel(int radius) {
-            this.radius = radius;
-            setOpaque(false);
-        }
-
-        void setBorderColor(Color color) { this.borderColor = color; }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(getBackground());
-            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
-            g2.setColor(borderColor);
-            g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
-            g2.dispose();
-            super.paintComponent(g);
-        }
-    }
+    
 }

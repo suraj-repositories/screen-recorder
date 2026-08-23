@@ -272,4 +272,10 @@ public class ToolbarButton extends JButton {
 	public void setPressedBackgroundColor(Color pressedBackgroundColor) {
 		this.pressedBackgroundColor = pressedBackgroundColor;
 	}
+	
+	public void setTransprent() {
+		this.backgroundColor = AppColors.TRANSPARENT;
+		this.hoverBackgroundColor = AppColors.TRANSPARENT;
+		this.pressedBackgroundColor = AppColors.TRANSPARENT;
+	}
 }

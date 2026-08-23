@@ -12,6 +12,8 @@ import javax.swing.JDialog;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.Scrollable;
+
+import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.gui.components.NearbySharePanel;
 import com.oranbyte.screenrec.gui.components.MainSharePanel;
@@ -19,7 +21,7 @@ import com.oranbyte.screenrec.gui.components.MainSharePanel;
 public class ShareDialog extends JDialog {
 
 	private static final long serialVersionUID = 1L;
-	public static final Color BG = new Color(246, 247, 251);
+	public static final Color BG = AppColors.BACKGROUND;
 
 	public static final String VIEW_MAIN = "MAIN_VIEW";
 	public static final String VIEW_ALTERNATE = "ALTERNATE_VIEW";

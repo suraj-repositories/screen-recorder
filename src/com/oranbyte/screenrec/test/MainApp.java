@@ -15,27 +15,12 @@ public class MainApp {
 
 	public static void main(String[] args) {
 
-//		System.out.println("here1");
-//		FileShareProvider provider = new LocalSendProvider(); 
-//		List<ShareDevice> devices = provider.getDevices(); 
-//		for(ShareDevice device : devices) {
-//			System.out.println(device);
-//		} 
-		
 		LocalSendDiscovery discovery = new LocalSendDiscovery();
 
-		LocalSendServer server = new LocalSendServer(
-				LocalSendProtocol.DEFAULT_PORT,
-				device -> {
-
-					System.out.println(
-							"DEVICE FOUND: "
-									+ device.getName()
-									+ " - "
-									+ device.getAddress()
-									+ ":"
-									+ device.getPort());
-				});
+		LocalSendServer server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT, device -> {
+			System.out.println(
+					"DEVICE FOUND: " + device.getName() + " - " + device.getAddress() + ":" + device.getPort());
+		});
 
 		try {
 
@@ -45,24 +30,17 @@ public class MainApp {
 			System.out.println("LocalSend discovery running...");
 
 			while (true) {
-			    Thread.sleep(1000);
-
-			    List<LocalSendDevice> devices =
-			            discovery.getDevices();
-
-			    System.out.println(
-			            "Discovered devices: " + devices.size());
+				Thread.sleep(1000);
+				List<LocalSendDevice> devices = discovery.getDevices();
+				System.out.println("Discovered devices: " + devices.size());
 			}
 
 		} catch (Exception e) {
-			 
 			e.printStackTrace();
 		} finally {
-
 			discovery.stop();
 			server.stop();
 		}
-		 
-		
+
 	}
 }
