@@ -8,23 +8,24 @@ public class LocalSendDevice extends ShareDevice {
 
 	private final String fingerprint;
 
+	private final String name;
+
+	
 	private final String protocol;
 
 	private final boolean downloadEnabled;
 
 	private final String version;
+	
 
 	public LocalSendDevice(String fingerprint, String name, String address, int port, String deviceType,
 			String deviceModel, String protocol, boolean downloadEnabled, String version) {
 
 		super(fingerprint, name, address, port, deviceType, deviceModel);
-
 		this.fingerprint = fingerprint;
-
 		this.protocol = protocol;
-
+		this.name = name;
 		this.downloadEnabled = downloadEnabled;
-
 		this.version = version;
 	}
 
@@ -35,6 +36,11 @@ public class LocalSendDevice extends ShareDevice {
 	public String getProtocol() {
 		return protocol;
 	}
+	
+	public String getName() {
+		return name;
+	}
+
 
 	public boolean isDownloadEnabled() {
 		return downloadEnabled;

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -11,6 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import javax.net.ssl.SSLContext;
 
@@ -24,16 +27,16 @@ import com.sun.net.httpserver.HttpsServer;
 public class LocalSendServer {
 
 	private final int port;
-
 	private final Path downloadDirectory;
-
 	private final Map<String, Session> sessions = new ConcurrentHashMap<>();
+	private final Consumer<LocalSendDevice> deviceConsumer;
 
 	private HttpsServer server;
 
-	public LocalSendServer(int port) {
+	public LocalSendServer(int port, Consumer<LocalSendDevice> deviceConsumer) {
 
 		this.port = port;
+		this.deviceConsumer = deviceConsumer;
 
 		this.downloadDirectory = Path.of(System.getProperty("user.home"), "Downloads", "ScreenRecorder");
 	}
@@ -45,63 +48,74 @@ public class LocalSendServer {
 		}
 
 		Files.createDirectories(downloadDirectory);
-
 		SSLContext sslContext = LocalSendSslContext.createServerContext();
-
 		server = HttpsServer.create(new InetSocketAddress(port), 0);
-
-		server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
-
+		server.setExecutor(Executors.newCachedThreadPool(runnable -> {
 			Thread thread = new Thread(runnable, "LocalSend-HTTP");
-
 			thread.setDaemon(true);
-
 			return thread;
 		}));
 
 		server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
-
 		server.createContext(LocalSendProtocol.REGISTER_PATH, this::handleRegister);
-
 		server.createContext(LocalSendProtocol.PREPARE_UPLOAD_PATH, this::handlePrepareUpload);
-
 		server.createContext(LocalSendProtocol.UPLOAD_PATH, this::handleUpload);
-
 		server.createContext(LocalSendProtocol.CANCEL_PATH, this::handleCancel);
-
 		server.createContext(LocalSendProtocol.INFO_PATH, this::handleInfo);
-
 		server.start();
 
-		System.out.println("LocalSend server started on port " + port);
+		System.out.println("LocalSend HTTPS server started on port " + port);
 	}
 
 	public synchronized void stop() {
 
 		if (server != null) {
-
 			server.stop(0);
-
 			server = null;
 		}
 
 		sessions.clear();
+		System.out.println("LocalSend HTTPS server stopped");
 	}
 
 	private void handleRegister(HttpExchange exchange) throws IOException {
 
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-
 			sendStatus(exchange, 405);
-
 			return;
 		}
 
-		String body = readBody(exchange);
+		try {
 
-		System.out.println("LocalSend register: " + body);
+			String body = readBody(exchange);
+			System.out.println("LocalSend register request from " + exchange.getRemoteAddress());
+			System.out.println("Register data: " + body);
+			JSONObject json = new JSONObject(body);
+			String address = exchange.getRemoteAddress().getAddress().getHostAddress();
+			LocalSendDevice device = LocalSendDevice.fromJson(address, json);
 
-		sendJson(exchange, 200, createIdentityJson());
+			if (!device.getFingerprint().isBlank()) {
+
+				if (deviceConsumer != null) {
+					deviceConsumer.accept(device);
+				}
+
+				System.out.println("LocalSend device discovered: " + device.getAddress() + " @ " + address);
+			} else {
+
+				System.out.println("LocalSend register request " + "did not contain a fingerprint");
+			}
+
+			sendJson(exchange, 200, createIdentityJson());
+
+		} catch (Exception e) {
+
+			System.err.println("LocalSend register error: " + e.getMessage());
+
+			e.printStackTrace();
+
+			sendStatus(exchange, 400);
+		}
 	}
 
 	private void handlePrepareUpload(HttpExchange exchange) throws IOException {
@@ -109,7 +123,6 @@ public class LocalSendServer {
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
 
 			sendStatus(exchange, 405);
-
 			return;
 		}
 
@@ -122,25 +135,20 @@ public class LocalSendServer {
 			JSONObject files = request.optJSONObject("files");
 
 			if (files == null || files.isEmpty()) {
-
 				sendStatus(exchange, 400);
-
 				return;
 			}
 
-			/*
-			 * LocalSend allows one active session.
-			 */
 			if (!sessions.isEmpty()) {
-
 				sendStatus(exchange, 409);
-
 				return;
 			}
 
 			String sessionId = UUID.randomUUID().toString();
 
-			Session session = new Session(sessionId, exchange.getRemoteAddress().getAddress().getHostAddress());
+			String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
+
+			Session session = new Session(sessionId, remoteAddress);
 
 			for (String fileId : files.keySet()) {
 
@@ -174,6 +182,8 @@ public class LocalSendServer {
 
 		} catch (Exception e) {
 
+			System.err.println("LocalSend prepare-upload error: " + e.getMessage());
+
 			e.printStackTrace();
 
 			sendStatus(exchange, 400);
@@ -185,7 +195,6 @@ public class LocalSendServer {
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
 
 			sendStatus(exchange, 405);
-
 			return;
 		}
 
@@ -200,16 +209,13 @@ public class LocalSendServer {
 		if (sessionId == null || fileId == null || token == null) {
 
 			sendStatus(exchange, 400);
-
 			return;
 		}
 
 		Session session = sessions.get(sessionId);
 
 		if (session == null) {
-
 			sendStatus(exchange, 403);
-
 			return;
 		}
 
@@ -218,7 +224,6 @@ public class LocalSendServer {
 		if (!session.remoteAddress.equals(remoteAddress)) {
 
 			sendStatus(exchange, 403);
-
 			return;
 		}
 
@@ -227,7 +232,6 @@ public class LocalSendServer {
 		if (file == null || !file.token.equals(token)) {
 
 			sendStatus(exchange, 403);
-
 			return;
 		}
 
@@ -259,8 +263,10 @@ public class LocalSendServer {
 
 				Files.deleteIfExists(temporary);
 
-				sendStatus(exchange, 500);
+				System.err.println(
+						"LocalSend upload size mismatch. " + "Expected: " + file.size + ", received: " + received);
 
+				sendStatus(exchange, 500);
 				return;
 			}
 
@@ -281,6 +287,8 @@ public class LocalSendServer {
 
 			Files.deleteIfExists(temporary);
 
+			System.err.println("LocalSend upload error: " + e.getMessage());
+
 			e.printStackTrace();
 
 			sendStatus(exchange, 500);
@@ -288,6 +296,12 @@ public class LocalSendServer {
 	}
 
 	private void handleCancel(HttpExchange exchange) throws IOException {
+
+		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+
+			sendStatus(exchange, 405);
+			return;
+		}
 
 		Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
 
@@ -306,7 +320,6 @@ public class LocalSendServer {
 		if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
 
 			sendStatus(exchange, 405);
-
 			return;
 		}
 
@@ -334,6 +347,10 @@ public class LocalSendServer {
 			json.put("fingerprint", LocalSendIdentity.getFingerprint());
 		}
 
+		json.put("port", port);
+
+		json.put("protocol", LocalSendProtocol.PROTOCOL_HTTPS);
+
 		json.put("download", false);
 
 		return json;
@@ -350,13 +367,13 @@ public class LocalSendServer {
 
 		try (InputStream input = exchange.getRequestBody()) {
 
-			return new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+			return new String(input.readAllBytes(), StandardCharsets.UTF_8);
 		}
 	}
 
 	private void sendJson(HttpExchange exchange, int status, JSONObject json) throws IOException {
 
-		byte[] data = json.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
 		Headers headers = exchange.getResponseHeaders();
 
@@ -390,11 +407,9 @@ public class LocalSendServer {
 
 			String[] pair = part.split("=", 2);
 
-			String key = java.net.URLDecoder.decode(pair[0], java.nio.charset.StandardCharsets.UTF_8);
+			String key = java.net.URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
 
-			String value = pair.length > 1
-					? java.net.URLDecoder.decode(pair[1], java.nio.charset.StandardCharsets.UTF_8)
-					: "";
+			String value = pair.length > 1 ? java.net.URLDecoder.decode(pair[1], StandardCharsets.UTF_8) : "";
 
 			result.put(key, value);
 		}
@@ -405,7 +420,6 @@ public class LocalSendServer {
 	private static class Session {
 
 		final String id;
-
 		final String remoteAddress;
 
 		final Map<String, PendingFile> files = new ConcurrentHashMap<>();
@@ -413,7 +427,6 @@ public class LocalSendServer {
 		Session(String id, String remoteAddress) {
 
 			this.id = id;
-
 			this.remoteAddress = remoteAddress;
 		}
 
@@ -426,11 +439,8 @@ public class LocalSendServer {
 	private static class PendingFile {
 
 		final String id;
-
 		final String token;
-
 		final String fileName;
-
 		final long size;
 
 		volatile boolean received;
@@ -438,11 +448,8 @@ public class LocalSendServer {
 		PendingFile(String id, String token, String fileName, long size) {
 
 			this.id = id;
-
 			this.token = token;
-
 			this.fileName = fileName;
-
 			this.size = size;
 		}
 	}

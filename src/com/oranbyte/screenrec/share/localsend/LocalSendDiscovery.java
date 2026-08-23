@@ -2,6 +2,7 @@ package com.oranbyte.screenrec.share.localsend;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
@@ -70,24 +71,48 @@ public class LocalSendDiscovery {
 		try {
 
 			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			InetAddress group = InetAddress.getByName(LocalSendProtocol.MULTICAST_ADDRESS);
 
 			while (interfaces.hasMoreElements()) {
+
 				NetworkInterface networkInterface = interfaces.nextElement();
+
 				if (!isUsableInterface(networkInterface)) {
 					continue;
 				}
 
 				try {
-					MulticastSocket socket = new MulticastSocket(port);
+
+					System.out.println("Starting LocalSend discovery on: " + networkInterface.getName() + " - "
+							+ networkInterface.getDisplayName());
+
+//					MulticastSocket socket = new MulticastSocket(null);
+//					socket.setReuseAddress(true);
+//					socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+//					socket.bind(new InetSocketAddress(port));
+//					socket.joinGroup(new InetSocketAddress(group, port), networkInterface);
+
+					Inet4Address ipv4 = Collections.list(networkInterface.getInetAddresses()).stream()
+							.filter(Inet4Address.class::isInstance).map(Inet4Address.class::cast).findFirst()
+							.orElse(null);
+
+					if (ipv4 == null) {
+						continue;
+					}
+
+					InetSocketAddress localAddress = new InetSocketAddress(ipv4, port);
+					MulticastSocket socket = new MulticastSocket(null);
 					socket.setReuseAddress(true);
 					socket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-					
-					InetAddress group = InetAddress.getByName(LocalSendProtocol.MULTICAST_ADDRESS);
+					socket.bind(localAddress);
 					socket.joinGroup(new InetSocketAddress(group, port), networkInterface);
-					
+
 					synchronized (sockets) {
 						sockets.add(socket);
 					}
+
+					System.out.println("Joined LocalSend multicast group " + group.getHostAddress() + ":" + port
+							+ " on " + networkInterface.getName());
 
 					Thread thread = new Thread(() -> listen(socket),
 							"LocalSend-Multicast-" + networkInterface.getName());
@@ -101,12 +126,28 @@ public class LocalSendDiscovery {
 			}
 
 		} catch (SocketException e) {
-			System.err.println("Unable to enumerate network " + "interfaces: " + e.getMessage());
+			System.err.println("Unable to enumerate network interfaces: " + e.getMessage());
+		} catch (Exception e) {
+			System.err.println("Unable to initialize LocalSend discovery: " + e.getMessage());
 		}
 	}
 
 	private boolean isUsableInterface(NetworkInterface networkInterface) throws SocketException {
-		return networkInterface.isUp() && !networkInterface.isLoopback() && networkInterface.supportsMulticast();
+
+		if (!networkInterface.isUp()) {
+			return false;
+		}
+
+		if (networkInterface.isLoopback()) {
+			return false;
+		}
+
+		if (!networkInterface.supportsMulticast()) {
+			return false;
+		}
+
+		return Collections.list(networkInterface.getInetAddresses()).stream()
+				.anyMatch(address -> address instanceof java.net.Inet4Address);
 	}
 
 	private void listen(MulticastSocket socket) {
@@ -116,13 +157,28 @@ public class LocalSendDiscovery {
 		while (running && !socket.isClosed()) {
 
 			try {
+
 				DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
 				socket.receive(packet);
+
+				String body = new String(packet.getData(), packet.getOffset(), packet.getLength(),
+						StandardCharsets.UTF_8);
+
+				System.out.println("LocalSend discovery packet received from " + packet.getAddress().getHostAddress()
+						+ ":" + packet.getPort());
+
+				System.out.println("LocalSend discovery data: " + body);
+
 				processPacket(packet);
+
 			} catch (IOException e) {
+
 				if (running) {
+
 					System.err.println("Discovery receive error: " + e.getMessage());
 				}
+
 				return;
 			}
 		}
@@ -137,6 +193,7 @@ public class LocalSendDiscovery {
 			String fingerprint = json.optString("fingerprint", "");
 
 			if (LocalSendIdentity.getFingerprint().equals(fingerprint)) {
+				System.out.println("Ignoring own LocalSend announcement");
 				return;
 			}
 
@@ -149,8 +206,11 @@ public class LocalSendDiscovery {
 				addDevice(address, json);
 			}
 
-		} catch (Exception ignored) {
-			// Ignore invalid discovery packets.
+		} catch (Exception e) {
+			System.err.println("Invalid LocalSend discovery packet: " + e.getMessage());
+
+			System.err.println("Packet data: "
+					+ new String(packet.getData(), packet.getOffset(), packet.getLength(), StandardCharsets.UTF_8));
 		}
 	}
 
@@ -200,22 +260,33 @@ public class LocalSendDiscovery {
 	}
 
 	private void announce() {
+
 		JSONObject json = createDeviceJson();
 		json.put("announce", true);
+
 		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
 		try {
+
 			InetAddress group = InetAddress.getByName(LocalSendProtocol.MULTICAST_ADDRESS);
 
 			synchronized (sockets) {
+
 				for (MulticastSocket socket : sockets) {
+
 					DatagramPacket packet = new DatagramPacket(data, data.length, group, port);
+
 					socket.send(packet);
+
+					System.out.println("LocalSend announcement sent to " + group.getHostAddress() + ":" + port
+							+ " using " + socket.getLocalAddress());
 				}
 			}
+
 		} catch (IOException e) {
+
 			if (running) {
-				System.err.println("Unable to send LocalSend " + "announcement: " + e.getMessage());
+				System.err.println("Unable to send LocalSend announcement: " + e.getMessage());
 			}
 		}
 	}
@@ -223,7 +294,7 @@ public class LocalSendDiscovery {
 	private JSONObject createDeviceJson() {
 
 		JSONObject json = new JSONObject();
-		
+
 		json.put("alias", LocalSendIdentity.getAlias());
 		json.put("version", LocalSendIdentity.getVersion());
 		json.put("deviceModel", LocalSendIdentity.getDeviceModel());

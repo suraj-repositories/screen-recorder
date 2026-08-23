@@ -21,9 +21,9 @@ public class LocalSendProvider implements FileShareProvider {
 	public LocalSendProvider() {
 
 		discovery = new LocalSendDiscovery(LocalSendProtocol.DEFAULT_PORT);
-		server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT);
+		server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT, this::deviceDiscovered);
 		client = new LocalSendClient();
-		
+
 		executor = Executors.newCachedThreadPool(runnable -> {
 			Thread thread = new Thread(runnable, "LocalSend-Worker");
 			thread.setDaemon(true);
@@ -39,7 +39,7 @@ public class LocalSendProvider implements FileShareProvider {
 		}
 
 		try {
- 
+
 			server.start();
 			discovery.start();
 
@@ -111,6 +111,12 @@ public class LocalSendProvider implements FileShareProvider {
 	@Override
 	public void cancel() {
 		client.cancelCurrentTransfer();
+	}
+
+	private void deviceDiscovered(LocalSendDevice device) {
+
+		System.out.println("DEVICE FOUND: " + device.getName() + " @ " + device.getAddress());
+
 	}
 
 	public boolean isRunning() {
