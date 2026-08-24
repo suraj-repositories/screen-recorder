@@ -33,11 +33,21 @@ public class LocalSendServer {
 
 	private HttpsServer server;
 
-	public LocalSendServer(int port, Consumer<LocalSendDevice> deviceConsumer) {
+	public LocalSendServer() {
+		this(LocalSendProtocol.DEFAULT_PORT, null);
+	}
 
+	public LocalSendServer(int port) {
+		this(port, null);
+	}
+
+	public LocalSendServer(Consumer<LocalSendDevice> deviceConsumer) {
+		this(LocalSendProtocol.DEFAULT_PORT, deviceConsumer);
+	}
+
+	public LocalSendServer(int port, Consumer<LocalSendDevice> deviceConsumer) {
 		this.port = port;
 		this.deviceConsumer = deviceConsumer;
-
 		this.downloadDirectory = Path.of(System.getProperty("user.home"), "Downloads", "ScreenRecorder");
 	}
 
@@ -103,7 +113,7 @@ public class LocalSendServer {
 				System.out.println("LocalSend device discovered: " + device.getAddress() + " @ " + address);
 			} else {
 
-				System.out.println("LocalSend register request " + "did not contain a fingerprint");
+				System.out.println("LocalSend register request did not contain a fingerprint");
 			}
 
 			sendJson(exchange, 200, createIdentityJson());
@@ -111,9 +121,7 @@ public class LocalSendServer {
 		} catch (Exception e) {
 
 			System.err.println("LocalSend register error: " + e.getMessage());
-
 			e.printStackTrace();
-
 			sendStatus(exchange, 400);
 		}
 	}
@@ -248,7 +256,7 @@ public class LocalSendServer {
 				Files.deleteIfExists(temporary);
 
 				System.err.println(
-						"LocalSend upload size mismatch. " + "Expected: " + file.size + ", received: " + received);
+						"LocalSend upload size mismatch. Expected: " + file.size + ", received: " + received);
 
 				sendStatus(exchange, 500);
 				return;

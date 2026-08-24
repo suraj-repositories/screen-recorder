@@ -39,23 +39,23 @@ public class FileShareManager {
 
 	public List<ShareDevice> getDevices() {
 
-		return List.of(
-				new ShareDevice("android-001", "Pixel 8 Pro", "192.168.1.101", 53317, "Android", "Google Pixel 8 Pro"),
-//				new ShareDevice("windows-001", "Suraj's PC", "192.168.1.102", 53317, "Windows", "Windows 11 PC"),
-//				new ShareDevice("tablet-001", "Android Tablet", "192.168.1.103", 53317, "Android", "Android Tablet"),
-				new ShareDevice("mac-001", "MacBook Pro", "192.168.1.104", 53317, "macOS", "MacBook Pro"));
+//		return List.of(
+//				new ShareDevice("android-001", "Pixel 8 Pro", "192.168.1.101", 53317, "Android", "Google Pixel 8 Pro"),
+////				new ShareDevice("windows-001", "Suraj's PC", "192.168.1.102", 53317, "Windows", "Windows 11 PC"),
+////				new ShareDevice("tablet-001", "Android Tablet", "192.168.1.103", 53317, "Android", "Android Tablet"),
+//				new ShareDevice("mac-001", "MacBook Pro", "192.168.1.104", 53317, "macOS", "MacBook Pro"));
 		
-//		if (!started) {
-//			return Collections.emptyList();
-//		}
-//
-//		List<ShareDevice> devices = provider.getDevices();
-//
-//		if (devices == null || devices.isEmpty()) {
-//			return Collections.emptyList();
-//		}
-//
-//		return List.copyOf(devices);
+		if (!started) {
+			return Collections.emptyList();
+		}
+
+		List<ShareDevice> devices = provider.getDevices();
+
+		if (devices == null || devices.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		return List.copyOf(devices);
 	}
 
  

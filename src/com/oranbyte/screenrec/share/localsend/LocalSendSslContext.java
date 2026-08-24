@@ -70,34 +70,51 @@ public final class LocalSendSslContext {
 //		return context;
 //	}
 	
-	public static SSLContext createClientContext() throws Exception { 
-	    X509TrustManager promiscuousTrustManager = new X509TrustManager() {
-	        @Override
-	        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
 
-	        @Override
-	        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+	public static SSLContext createClientContext() throws Exception {
+		ensureCertificate();
+		KeyStore keyStore = loadKeyStore();
 
-	        @Override
-	        public X509Certificate[] getAcceptedIssuers() {
-	            return new X509Certificate[0];
-	        }
-	    };
+		KeyManagerFactory factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+		factory.init(keyStore, PASSWORD);
 
-	    SSLContext context = SSLContext.getInstance("TLS");
-	    context.init(null, new TrustManager[]{ promiscuousTrustManager }, new SecureRandom());
-	    return context;
+		X509TrustManager promiscuousTrustManager = new X509TrustManager() {
+			@Override
+			public void checkClientTrusted(X509Certificate[] chain, String authType) {
+			}
+
+			@Override
+			public void checkServerTrusted(X509Certificate[] chain, String authType) {
+			}
+
+			@Override
+			public X509Certificate[] getAcceptedIssuers() {
+				return new X509Certificate[0];
+			}
+		};
+
+		SSLContext context = SSLContext.getInstance("TLS");
+		// Pass factory.getKeyManagers() instead of null
+		context.init(factory.getKeyManagers(), new TrustManager[] { promiscuousTrustManager }, new SecureRandom());
+		return context;
 	}
 
-	public static SSLContext createClientContext(String expectedFingerprint) throws Exception { 
-	    if (expectedFingerprint == null || expectedFingerprint.isBlank()) {
-	        return createClientContext();
-	    }
+	public static SSLContext createClientContext(String expectedFingerprint) throws Exception {
+		if (expectedFingerprint == null || expectedFingerprint.isBlank()) {
+			return createClientContext();
+		}
 
-	    X509TrustManager trustManager = new FingerprintTrustManager(expectedFingerprint);
-	    SSLContext context = SSLContext.getInstance("TLS");
-	    context.init(null, new TrustManager[]{ trustManager }, new SecureRandom());
-	    return context;
+		ensureCertificate();
+		KeyStore keyStore = loadKeyStore();
+
+		KeyManagerFactory factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+		factory.init(keyStore, PASSWORD);
+
+		X509TrustManager trustManager = new FingerprintTrustManager(expectedFingerprint);
+		SSLContext context = SSLContext.getInstance("TLS");
+		// Pass factory.getKeyManagers() instead of null
+		context.init(factory.getKeyManagers(), new TrustManager[] { trustManager }, new SecureRandom());
+		return context;
 	}
 
 	public static String getCertificateFingerprint() throws Exception {

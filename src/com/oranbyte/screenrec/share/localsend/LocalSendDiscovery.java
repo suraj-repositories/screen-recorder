@@ -1,7 +1,10 @@
 package com.oranbyte.screenrec.share.localsend;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -11,6 +14,8 @@ import java.net.SocketException;
 import java.net.StandardSocketOptions;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -19,25 +24,39 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.json.JSONObject;
 
 public class LocalSendDiscovery {
 
 	private final int port;
+	private final Consumer<LocalSendDevice> deviceListener;
 
 	private final Map<String, LocalSendDevice> devices = new ConcurrentHashMap<>();
 	private final List<MulticastSocket> sockets = new ArrayList<>();
 	private volatile boolean running;
 
 	public LocalSendDiscovery() {
-		this(LocalSendProtocol.DEFAULT_PORT);
+		this(LocalSendProtocol.DEFAULT_PORT, null);
 	}
 
 	public LocalSendDiscovery(int port) {
+		this(port, null);
+	}
+
+	public LocalSendDiscovery(Consumer<LocalSendDevice> deviceListener) {
+		this(LocalSendProtocol.DEFAULT_PORT, deviceListener);
+	}
+
+	public LocalSendDiscovery(int port, Consumer<LocalSendDevice> deviceListener) {
 		this.port = port;
+		this.deviceListener = deviceListener;
 	}
 
 	public synchronized void start() {
@@ -204,10 +223,14 @@ public class LocalSendDiscovery {
 				address = address.substring(0, address.indexOf("%"));
 			}
 
+			System.out.println("Announce : " + announce + " | Address : " + address);
+
+			// FIX: ALWAYS add the device regardless of whether announce is true or false
+			addDevice(address, json);
+
+			// If they are announcing, we must reply back directly
 			if (announce) {
 				sendMulticastResponse(packet.getAddress());
-			} else {
-				addDevice(address, json);
 			}
 
 		} catch (Exception e) {
@@ -222,31 +245,39 @@ public class LocalSendDiscovery {
 		LocalSendDevice device = LocalSendDevice.fromJson(address, json);
 		String myFingerprint = LocalSendIdentity.getFingerprint();
 
-		// Ignore self-discovery from loopback or IP scans
-		if (device.getFingerprint().isBlank() || device.getFingerprint().equals(myFingerprint)) {
+		if (device.getFingerprint().isBlank()) {
+			System.err.println("Device payload missing fingerprint from " + address + ": " + json);
 			return;
 		}
 
+		// Ignore self-discovery from loopback or IP scans
+		if (device.getFingerprint().equals(myFingerprint)) {
+			return;
+		}
+
+		boolean isNewDevice = !devices.containsKey(device.getFingerprint());
 		devices.put(device.getFingerprint(), device);
 		System.out.println("Valid external device added: " + device.getName() + " @ " + address);
+
+		if (isNewDevice && deviceListener != null) {
+			deviceListener.accept(device);
+		}
 	}
 
-	private void sendMulticastResponse(InetAddress destination) {
-
-		JSONObject json = createDeviceJson();
-		json.put("announce", false);
-		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
-
+	private void sendMulticastResponse(InetAddress targetAddress) {
 		try {
-			synchronized (sockets) {
-				for (MulticastSocket socket : sockets) {
-					DatagramPacket packet = new DatagramPacket(data, data.length, destination, port);
-					socket.send(packet);
-				}
-			}
+			JSONObject json = createDeviceJson();
+			json.put("announce", false); // Response packet flag is false
+			byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
-		} catch (IOException e) {
-			System.err.println("Unable to send discovery response: " + e.getMessage());
+			// Direct UDP packet back to target port 53317
+			DatagramPacket packet = new DatagramPacket(data, data.length, targetAddress, LocalSendProtocol.DEFAULT_PORT);
+
+			try (DatagramSocket socket = new DatagramSocket()) {
+				socket.send(packet);
+			}
+		} catch (Exception e) {
+			System.err.println("Failed to send discovery response: " + e.getMessage());
 		}
 	}
 
@@ -319,28 +350,50 @@ public class LocalSendDiscovery {
 	}
 
 	private void checkDeviceAtIp(String ip) {
-	    try {
-	        URL url = new URL("https://" + ip + ":" + port + LocalSendProtocol.INFO_PATH);
-	        
-	        HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-	        conn.setConnectTimeout(1000);
-	        conn.setReadTimeout(1000); 
-	        conn.setSSLSocketFactory(LocalSendSslContext.createClientContext().getSocketFactory());
-	        conn.setHostnameVerifier((hostname, session) -> true);
+		try {
+			URL url = new URL("https://" + ip + ":" + port + LocalSendProtocol.REGISTER_PATH);
 
-	        if (conn.getResponseCode() == 200) {
-	            String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-	            JSONObject json = new JSONObject(body);
-	            addDevice(ip, json);
-	            System.out.println("LocalSend device discovered via direct IP: " + ip);
-	        }
-	    } catch (java.net.SocketTimeoutException e) {
-	         
-	    } catch (java.net.ConnectException e) {
-	        
-	    } catch (Exception e) {
-	        System.err.println("Direct IP connection failed to " + ip + ": " + e.getMessage());
-	    }
+			TrustManager[] trustAllCerts = new TrustManager[] {
+				new X509TrustManager() {
+					public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+					public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+					public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+				}
+			};
+
+			SSLContext sslContext = SSLContext.getInstance("TLS");
+			sslContext.init(null, trustAllCerts, new SecureRandom());
+
+			HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+			conn.setConnectTimeout(1500);
+			conn.setReadTimeout(1500);
+			conn.setSSLSocketFactory(sslContext.getSocketFactory());
+			conn.setHostnameVerifier((hostname, session) -> true);
+			conn.setRequestMethod("POST");
+			conn.setRequestProperty("Content-Type", "application/json");
+			conn.setDoOutput(true);
+
+			JSONObject bodyJson = createDeviceJson();
+			bodyJson.put("announce", false);
+			byte[] payload = bodyJson.toString().getBytes(StandardCharsets.UTF_8);
+
+			try (OutputStream os = conn.getOutputStream()) {
+				os.write(payload);
+			}
+
+			if (conn.getResponseCode() == 200) {
+				try (InputStream is = conn.getInputStream()) {
+					String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+					JSONObject json = new JSONObject(body);
+					addDevice(ip, json);
+					System.out.println("LocalSend device discovered via direct IP scan: " + ip);
+				}
+			}
+		} catch (java.net.SocketTimeoutException | java.net.ConnectException ignored) {
+			// Normal for offline IPs in subnet
+		} catch (Exception e) {
+			System.err.println("Direct IP connection failed to " + ip + ": " + e.getMessage());
+		}
 	}
 
 	private String getLocalIpAddress() {
