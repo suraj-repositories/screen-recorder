@@ -10,8 +10,7 @@ import com.oranbyte.screenrec.share.localsend.LocalSendServer;
 public class MainApp {
 
 	public static void main(String[] args) {
-	    
-	    // Wire the Consumer callback directly to LocalSendDiscovery
+	      
 	    LocalSendDiscovery discovery = new LocalSendDiscovery(device -> {
 	        System.out.println(
 	                "DEVICE FOUND: " + device.getName() + " - " + device.getAddress() + ":" + device.getPort());

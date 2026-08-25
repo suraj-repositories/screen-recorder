@@ -20,7 +20,7 @@ public enum Icons {
 	TELEGRAM("telegram.png"), TWITTER("twitter.png"), EMAIL("email.png"), RECTANGLE("rectangle.png"),
 	WINDOW("window.png"), ENTIRE_SCREEN("full-screen.png"), DROPPER("dropper.png"), FOLDER("folder.png"),
 	IMAGE("image.png"), SCAN("scan.png"), FILE("file.png"), UPLOAD("upload.png"), PHONE("phone.png"),
-	TABLET("tablet.png"), DESKTOP("desktop.png");
+	TABLET("tablet.png"), DESKTOP("desktop.png"), LOADING("loading.svg");
 
 	private static final String BASE_PATH = "/com/oranbyte/screenrec/icons/";
 

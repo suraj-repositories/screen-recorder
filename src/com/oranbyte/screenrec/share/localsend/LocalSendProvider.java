@@ -53,6 +53,7 @@ public class LocalSendProvider implements FileShareProvider {
 			} catch (Exception ignored) {
 			}
 
+			e.printStackTrace();
 			throw new IllegalStateException("Unable to start LocalSend.", e);
 		}
 	}

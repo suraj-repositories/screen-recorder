@@ -30,6 +30,7 @@ public class ShareDialog extends JDialog {
 	private CardLayout cardLayout;
 	private ScrollableCardPanel cardsPanel;
 	private JScrollPane scrollPane;
+	private NearbySharePanel nearbySharePanel;
 
 	public ShareDialog(Frame owner, File file) {
 		super(owner, "Share File", true);
@@ -50,10 +51,10 @@ public class ShareDialog extends JDialog {
 		cardsPanel.setBackground(BG);
 
 		MainSharePanel mainPanel = new MainSharePanel(this, file);
-		NearbySharePanel alternatePanel = new NearbySharePanel(this, file);
+		nearbySharePanel = new NearbySharePanel(this, file);
 
 		cardsPanel.add(mainPanel, VIEW_MAIN);
-		cardsPanel.add(alternatePanel, VIEW_ALTERNATE);
+		cardsPanel.add(nearbySharePanel, VIEW_ALTERNATE);
 
 		scrollPane = new JScrollPane(cardsPanel);
 		scrollPane.setBorder(null);
@@ -74,6 +75,7 @@ public class ShareDialog extends JDialog {
 	public void showNearbySharePanel() {
 		cardLayout.show(cardsPanel, VIEW_ALTERNATE);
 		resetScrollPosition();
+		nearbySharePanel.startDiscovery();
 	}
 
 	public void setViewPanel(JComponent component, String viewName) {

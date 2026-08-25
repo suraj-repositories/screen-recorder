@@ -12,6 +12,7 @@ import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.StandardSocketOptions;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -41,6 +42,8 @@ public class LocalSendDiscovery {
 	private final Map<String, LocalSendDevice> devices = new ConcurrentHashMap<>();
 	private final List<MulticastSocket> sockets = new ArrayList<>();
 	private volatile boolean running;
+	private Thread scanThread;
+	private ExecutorService scanExecutor;
 
 	public LocalSendDiscovery() {
 		this(LocalSendProtocol.DEFAULT_PORT, null);
@@ -66,13 +69,18 @@ public class LocalSendDiscovery {
 		}
 
 		running = true;
+
 		startMulticastListeners();
 		startAnnouncementThread();
 
-		Thread scanThread = new Thread(() -> {
+		scanExecutor = Executors.newFixedThreadPool(30);
+
+		scanThread = new Thread(() -> {
 			String localIp = getLocalIpAddress();
-			if (localIp != null) {
+
+			if (localIp != null && running) {
 				System.out.println("Starting LocalSend active subnet scan on: " + localIp);
+
 				scanSubnet(localIp);
 			}
 		}, "LocalSend-SubnetScan");
@@ -82,13 +90,28 @@ public class LocalSendDiscovery {
 	}
 
 	public synchronized void stop() {
+
+		if (!running) {
+			return;
+		}
+
 		running = false;
+
+		if (scanThread != null) {
+			scanThread.interrupt();
+			scanThread = null;
+		}
+
+		if (scanExecutor != null) {
+			scanExecutor.shutdownNow();
+			scanExecutor = null;
+		}
+
 		synchronized (sockets) {
 			for (MulticastSocket socket : sockets) {
 				try {
 					socket.close();
-				} catch (Exception ignored) {
-				}
+				} catch (Exception ignored) {}
 			}
 
 			sockets.clear();
@@ -225,10 +248,8 @@ public class LocalSendDiscovery {
 
 			System.out.println("Announce : " + announce + " | Address : " + address);
 
-			// FIX: ALWAYS add the device regardless of whether announce is true or false
 			addDevice(address, json);
 
-			// If they are announcing, we must reply back directly
 			if (announce) {
 				sendMulticastResponse(packet.getAddress());
 			}
@@ -250,7 +271,6 @@ public class LocalSendDiscovery {
 			return;
 		}
 
-		// Ignore self-discovery from loopback or IP scans
 		if (device.getFingerprint().equals(myFingerprint)) {
 			return;
 		}
@@ -267,11 +287,11 @@ public class LocalSendDiscovery {
 	private void sendMulticastResponse(InetAddress targetAddress) {
 		try {
 			JSONObject json = createDeviceJson();
-			json.put("announce", false); // Response packet flag is false
+			json.put("announce", false);
 			byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
 
-			// Direct UDP packet back to target port 53317
-			DatagramPacket packet = new DatagramPacket(data, data.length, targetAddress, LocalSendProtocol.DEFAULT_PORT);
+			DatagramPacket packet = new DatagramPacket(data, data.length, targetAddress,
+					LocalSendProtocol.DEFAULT_PORT);
 
 			try (DatagramSocket socket = new DatagramSocket()) {
 				socket.send(packet);
@@ -332,34 +352,51 @@ public class LocalSendDiscovery {
 	}
 
 	public void scanSubnet(String localIp) {
-		if (localIp == null || localIp.isBlank())
+
+		if (localIp == null || localIp.isBlank() || !running) {
 			return;
+		}
 
 		String subnet = localIp.substring(0, localIp.lastIndexOf('.'));
-		ExecutorService scanExecutor = Executors.newFixedThreadPool(30);
 
 		for (int i = 1; i < 255; i++) {
+
+			if (!running || Thread.currentThread().isInterrupted()) {
+				break;
+			}
+
 			String targetIp = subnet + "." + i;
 
-			if (targetIp.equals(localIp))
+			if (targetIp.equals(localIp)) {
 				continue;
+			}
 
-			scanExecutor.submit(() -> checkDeviceAtIp(targetIp));
+			scanExecutor.submit(() -> {
+
+				if (!running || Thread.currentThread().isInterrupted()) {
+					return;
+				}
+
+				checkDeviceAtIp(targetIp);
+			});
 		}
-		scanExecutor.shutdown();
 	}
 
 	private void checkDeviceAtIp(String ip) {
 		try {
-			URL url = new URL("https://" + ip + ":" + port + LocalSendProtocol.REGISTER_PATH);
+			URL url = URI.create("https://" + ip + ":" + port + LocalSendProtocol.REGISTER_PATH).toURL();
 
-			TrustManager[] trustAllCerts = new TrustManager[] {
-				new X509TrustManager() {
-					public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-					public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-					public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+			TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
+				public X509Certificate[] getAcceptedIssuers() {
+					return new X509Certificate[0];
 				}
-			};
+
+				public void checkClientTrusted(X509Certificate[] certs, String authType) {
+				}
+
+				public void checkServerTrusted(X509Certificate[] certs, String authType) {
+				}
+			} };
 
 			SSLContext sslContext = SSLContext.getInstance("TLS");
 			sslContext.init(null, trustAllCerts, new SecureRandom());
@@ -390,7 +427,6 @@ public class LocalSendDiscovery {
 				}
 			}
 		} catch (java.net.SocketTimeoutException | java.net.ConnectException ignored) {
-			// Normal for offline IPs in subnet
 		} catch (Exception e) {
 			System.err.println("Direct IP connection failed to " + ip + ": " + e.getMessage());
 		}

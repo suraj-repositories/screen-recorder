@@ -16,6 +16,8 @@ import javax.swing.JButton;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
+import javax.swing.Icon;
+
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
@@ -47,7 +49,7 @@ public class ToolbarButton extends JButton {
 		super(text, icon.icon(iconSize));
 		initialize();
 	}
-
+	 
 	public ToolbarButton(String text, Icons icon, int iconSize, int borderRadius) {
 		this(text, icon, iconSize);
 		this.borderRadius = borderRadius;
@@ -65,7 +67,13 @@ public class ToolbarButton extends JButton {
 		super(text);
 		initialize();
 	}
-
+	
+	public ToolbarButton(Icon icon) {
+	    super();
+	    setIcon(icon);
+	    initialize();
+	}
+	
 	private void initialize() {
 		setFocusable(false);
 		setFocusPainted(false);
