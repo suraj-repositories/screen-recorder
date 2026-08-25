@@ -19,7 +19,6 @@ public class LocalSendProvider implements FileShareProvider {
 	private volatile boolean running;
 
 	public LocalSendProvider() {
-
 		discovery = new LocalSendDiscovery(LocalSendProtocol.DEFAULT_PORT);
 		server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT, this::deviceDiscovered);
 		client = new LocalSendClient();
@@ -103,6 +102,7 @@ public class LocalSendProvider implements FileShareProvider {
 				LocalSendFile localFile = new LocalSendFile(file);
 				client.send(localDevice, localFile, listener);
 			} catch (Exception e) {
+				System.out.println("Error : " + e.getMessage());
 				listener.onFailed(e);
 			}
 		});

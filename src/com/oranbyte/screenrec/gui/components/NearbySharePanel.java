@@ -42,6 +42,7 @@ import com.oranbyte.screenrec.gui.ShareDialog;
 import com.oranbyte.screenrec.share.FileShareManager;
 import com.oranbyte.screenrec.share.FileShareProvider;
 import com.oranbyte.screenrec.share.ShareDevice;
+import com.oranbyte.screenrec.share.TransferListener;
 import com.oranbyte.screenrec.share.localsend.LocalSendProvider;
 import com.oranbyte.screenrec.util.FileUtil;
 
@@ -130,9 +131,7 @@ public class NearbySharePanel extends JPanel {
 		refreshBtn.setPadding(0, 0, 0, 0);
 		refreshBtn.setHasBorder(false);
 		refreshBtn.setToolTipText("Scan devices");
-		refreshBtn.addActionListener(e -> {
-			startDiscovery(); // Always restarts scan on click, clearing old list
-		});
+		refreshBtn.addActionListener(e -> startDiscovery());
 
 		headerRow.add(header, BorderLayout.WEST);
 		headerRow.add(refreshBtn, BorderLayout.EAST);
@@ -140,7 +139,6 @@ public class NearbySharePanel extends JPanel {
 
 		topPanel.add(Box.createVerticalStrut(10));
 		topPanel.add(createFileCard());
- 
 
 		add(topPanel, BorderLayout.NORTH);
 	}
@@ -282,16 +280,17 @@ public class NearbySharePanel extends JPanel {
 	private boolean isOverSendButton(MouseEvent e, Rectangle bounds) {
 		int buttonSize = 36;
 		int paddingRight = 12;
-		Rectangle buttonBounds = new Rectangle(
-				bounds.x + bounds.width - buttonSize - paddingRight,
-				bounds.y + (bounds.height - buttonSize) / 2,
-				buttonSize,
-				buttonSize);
+		Rectangle buttonBounds = new Rectangle(bounds.x + bounds.width - buttonSize - paddingRight,
+				bounds.y + (bounds.height - buttonSize) / 2, buttonSize, buttonSize);
 		return buttonBounds.contains(e.getPoint());
 	}
 
 	private void startDiscovery() {
-		stopDiscovery(); 
+		stopDiscovery();
+
+		if (!manager.isStarted()) {
+			manager.start();
+		}
 
 		isScanning = true;
 		scanCount = 0;
@@ -299,7 +298,7 @@ public class NearbySharePanel extends JPanel {
 		rotationTimer.start();
 
 		statusLabel.setText("Scanning for nearby devices...");
-		deviceListModel.clear();  
+		deviceListModel.clear();
 
 		discoveryWorker = new SwingWorker<>() {
 			@Override
@@ -309,11 +308,10 @@ public class NearbySharePanel extends JPanel {
 					if (devices != null && !devices.isEmpty()) {
 						for (ShareDevice device : devices) {
 							publish(device);
-						} 
-						break;
+						}
 					}
 					scanCount++;
-					Thread.sleep(2000);
+					Thread.sleep(1500);
 				}
 				return null;
 			}
@@ -325,9 +323,7 @@ public class NearbySharePanel extends JPanel {
 						deviceListModel.addElement(device);
 					}
 				}
-				if (!deviceListModel.isEmpty()) {
-					updateStatusAfterScan();
-				}
+				updateStatusAfterScan();
 			}
 
 			@Override
@@ -350,7 +346,11 @@ public class NearbySharePanel extends JPanel {
 	private void updateStatusAfterScan() {
 		int count = deviceListModel.getSize();
 		if (count == 0) {
-			statusLabel.setText("No devices found.");
+			if (isScanning) {
+				statusLabel.setText("Scanning for nearby devices...");
+			} else {
+				statusLabel.setText("No devices found.");
+			}
 		} else {
 			statusLabel.setText("Found " + count + " device" + (count > 1 ? "s" : "") + ".");
 		}
@@ -372,6 +372,9 @@ public class NearbySharePanel extends JPanel {
 		if (discoveryWorker != null && !discoveryWorker.isDone()) {
 			discoveryWorker.cancel(true);
 		}
+		if (manager != null && manager.isStarted()) {
+			manager.stop();
+		}
 	}
 
 	private void sendFileToDevice(ShareDevice device) {
@@ -385,7 +388,53 @@ public class NearbySharePanel extends JPanel {
 				"Confirm Transfer", JOptionPane.YES_NO_OPTION);
 
 		if (confirm == JOptionPane.YES_OPTION) {
-			statusLabel.setText("Sending file to " + device.getName() + "...");
+			statusLabel.setText("Connecting to " + device.getName() + "...");
+
+			new SwingWorker<Void, Void>() {
+				@Override
+				protected Void doInBackground() throws Exception {
+					manager.send(file, device, new TransferListener() {
+						@Override
+						public void onStarted(long totalBytes) {
+							SwingUtilities.invokeLater(() -> statusLabel
+									.setText("Sending " + file.getName() + " to " + device.getName() + "..."));
+						}
+
+						@Override
+						public void onProgress(long transferred, long total) {
+							int percent = (int) (((double) transferred / total) * 100);
+							SwingUtilities.invokeLater(
+									() -> statusLabel.setText("Sending to " + device.getName() + ": " + percent + "%"));
+						}
+
+						@Override
+						public void onCompleted() {
+							SwingUtilities.invokeLater(() -> {
+								statusLabel.setText("Successfully sent to " + device.getName() + "!");
+								JOptionPane.showMessageDialog(NearbySharePanel.this,
+										"File transferred successfully to " + device.getName(), "Transfer Complete",
+										JOptionPane.INFORMATION_MESSAGE);
+							});
+						}
+
+						@Override
+						public void onFailed(Exception e) {
+							SwingUtilities.invokeLater(() -> {
+								statusLabel.setText("Transfer to " + device.getName() + " failed.");
+								JOptionPane.showMessageDialog(NearbySharePanel.this,
+										"Failed to send file: " + e.getMessage(), "Transfer Failed",
+										JOptionPane.ERROR_MESSAGE);
+							});
+						}
+
+						@Override
+						public void onCancelled() {
+							SwingUtilities.invokeLater(() -> statusLabel.setText("Transfer cancelled."));
+						}
+					});
+					return null;
+				}
+			}.execute();
 		}
 	}
 
@@ -462,8 +511,7 @@ public class NearbySharePanel extends JPanel {
 
 			itemPanel.setOpaque(false);
 
-			itemPanel.setBorder(BorderFactory.createCompoundBorder(
-					BorderFactory.createEmptyBorder(4, 2, 4, 2),
+			itemPanel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2),
 					BorderFactory.createEmptyBorder(6, 12, 6, 12)));
 
 			JLabel deviceIconLabel = new JLabel(resolveDeviceIcon(device));
