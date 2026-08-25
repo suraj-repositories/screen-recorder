@@ -1,9 +1,15 @@
 package com.oranbyte.screenrec.share.localsend;
 
+import com.oranbyte.screenrec.constants.AppConstant;
+
 public final class LocalSendProtocol {
 
 	private LocalSendProtocol() {
 	}
+	
+	public static final String ALIAS = AppConstant.APP_NAME;
+	
+	public static final String DEVICE_MODEL = System.getProperty("os.name");
 
 	public static final String VERSION = "2.0";
 

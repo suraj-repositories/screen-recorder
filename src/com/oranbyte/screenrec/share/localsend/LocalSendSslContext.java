@@ -31,6 +31,8 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+
+import com.oranbyte.screenrec.constants.AppConstant;
  
 public final class LocalSendSslContext {
  
@@ -167,7 +169,7 @@ public final class LocalSendSslContext {
 
 		BigInteger serial = new BigInteger(128, new SecureRandom());
 
-		X500Name name = new X500Name("CN=ScreenRecorder");
+		X500Name name = new X500Name("CN=" + AppConstant.APP_NAME);
 
 		JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(name, serial, notBefore, notAfter, name,
 				keyPair.getPublic());

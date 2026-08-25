@@ -20,7 +20,7 @@
 6. add color picker --- decided and dedicated for next update
 7. add selection size on time -- done
 8. fix the video recording : large time issue -- done
-9. update share system :  
+9. update share system :  done
 
 ├── share
 │   │
@@ -41,6 +41,11 @@
 │       ├── LocalSendServer.java
 │       └── LocalSendSslContext.java
 
+
+issues : 
+1. file sharing at multiple locations
+2. connection timeout
+3. once sent - reset the nearby sharing 
 
 
 
