@@ -1,0 +1,16 @@
+# Screen Recorder Documentation
+
+- [Download](Getting%20Started/Download.md)
+- [Setup in Eclipse](Getting%20Started/Setup%20in%20Eclipse.md)
+- [Dependencies](Getting%20Started/Dependencies.md)
+- [Introduction](Getting%20Started/Introduction.md)
+- [Recording controls](Customize/Recording%20Controls.md)
+- [Variables](Customize/Variables.md)
+- [Take a screenshot](Usage/Take%20screenshot.md)
+- [Record video](Usage/Record%20video.md)
+- [Record voice](Usage/Record%20voice.md)
+- [Nearby sharing](Usage/Share/Nearby%20Sharing.md)
+- [Social sharing and opening files](Usage/Share/Social%20media%20sharing%2C%20file%20manager%2C%20and%20media%20player.md)
+- [Technical overview](About/Technical%20Overview.md)
+- [Team](About/Team.md)
+- [Licence](About/Licence.md)

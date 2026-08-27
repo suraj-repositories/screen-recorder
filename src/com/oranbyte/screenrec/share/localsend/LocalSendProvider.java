@@ -32,27 +32,20 @@ public class LocalSendProvider implements FileShareProvider {
 
 	@Override
 	public synchronized void start() {
-
 		if (running) {
 			return;
 		}
 
 		try {
-
 			server.start();
 			discovery.start();
-
 			running = true;
-
 			System.out.println("LocalSend provider started.");
-
 		} catch (Exception e) {
-
 			try {
 				server.stop();
 			} catch (Exception ignored) {
 			}
-
 			e.printStackTrace();
 			throw new IllegalStateException("Unable to start LocalSend.", e);
 		}
@@ -60,10 +53,12 @@ public class LocalSendProvider implements FileShareProvider {
 
 	@Override
 	public synchronized void stop() {
-
 		if (!running) {
 			return;
 		}
+
+		// Cancel any active client transfer and release sockets
+		client.cancelCurrentTransfer();
 
 		discovery.stop();
 		server.stop();
@@ -75,25 +70,20 @@ public class LocalSendProvider implements FileShareProvider {
 
 	@Override
 	public List<ShareDevice> getDevices() {
-
 		if (!running) {
 			return List.of();
 		}
-
 		return new ArrayList<>(discovery.getDevices());
 	}
 
 	@Override
 	public void send(File file, ShareDevice device, TransferListener listener) {
-
 		if (!running) {
 			throw new IllegalStateException("LocalSend provider is not running.");
 		}
-
 		if (file == null) {
 			throw new IllegalArgumentException("File cannot be null.");
 		}
-
 		if (!(device instanceof LocalSendDevice localDevice)) {
 			throw new IllegalArgumentException("Device is not a LocalSend device.");
 		}
@@ -103,8 +93,12 @@ public class LocalSendProvider implements FileShareProvider {
 				LocalSendFile localFile = new LocalSendFile(file);
 				client.send(localDevice, localFile, listener);
 			} catch (Exception e) {
-				System.out.println("Error : " + e.getMessage());
-				listener.onFailed(e);
+				System.err.println("Error sending file: " + e.getMessage());
+				if (listener != null) {
+					listener.onFailed(e);
+				}
+			} finally {
+				client.cancelCurrentTransfer();
 			}
 		});
 	}
@@ -115,9 +109,7 @@ public class LocalSendProvider implements FileShareProvider {
 	}
 
 	private void deviceDiscovered(LocalSendDevice device) {
-
 		System.out.println("DEVICE FOUND: " + device.getName() + " @ " + device.getAddress());
-
 	}
 
 	public boolean isRunning() {

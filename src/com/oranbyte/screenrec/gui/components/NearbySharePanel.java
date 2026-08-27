@@ -41,13 +41,13 @@ import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.gui.ShareDialog;
+import com.oranbyte.screenrec.util.FileUtil;
+import com.oranbyte.screenrec.util.NotificationUtil;
 import com.oranbyte.screenrec.share.FileShareManager;
 import com.oranbyte.screenrec.share.FileShareProvider;
 import com.oranbyte.screenrec.share.ShareDevice;
 import com.oranbyte.screenrec.share.TransferListener;
 import com.oranbyte.screenrec.share.localsend.LocalSendProvider;
-import com.oranbyte.screenrec.util.FileUtil;
-import com.oranbyte.screenrec.util.NotificationUtil;
 
 public class NearbySharePanel extends JPanel {
 
@@ -58,7 +58,7 @@ public class NearbySharePanel extends JPanel {
 	private static final Color TEXT_SECONDARY = AppColors.TEXT_SECONDARY;
 
 	private static final int MAX_RELOAD_COUNT = AppConstant.NEARBY_SCAN_TIMEOUT;
-	private static final int CONNECTION_TIMEOUT_MS = 15000; // 15 seconds connection timeout
+	private static final int CONNECTION_TIMEOUT_MS = 15000;
 
 	private final ShareDialog dialog;
 	private final File file;
@@ -448,8 +448,7 @@ public class NearbySharePanel extends JPanel {
 			state.progressPercent = 0;
 			state.statusText = "Connecting...";
 			deviceList.repaint();
-
-			// Set up connection timeout timer
+ 
 			cancelTimeout(deviceId);
 			Timer timeoutTimer = new Timer(CONNECTION_TIMEOUT_MS, e -> {
 				if (state.isConnecting) {
@@ -727,4 +726,5 @@ public class NearbySharePanel extends JPanel {
 			return itemPanel;
 		}
 	}
+
 }

@@ -2,6 +2,7 @@ package com.oranbyte.screenrec.share.localsend;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -10,16 +11,14 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.Principal;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import java.net.Socket;
-import java.security.Principal;
-import java.security.PrivateKey;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -39,6 +38,7 @@ public class LocalSendClient {
 
 	private volatile String currentSessionId;
 	private volatile LocalSendDevice currentDevice;
+	private volatile HttpClient activeClient;
 
 	public void send(LocalSendDevice device, LocalSendFile file, TransferListener listener) throws Exception {
 
@@ -46,7 +46,9 @@ public class LocalSendClient {
 		currentDevice = device;
 
 		JSONObject request = createPrepareRequest(file);
+		 
 		HttpClient client = createHttpClient(device);
+		this.activeClient = client;
 
 		URI uri = URI.create(device.getBaseUrl() + LocalSendProtocol.PREPARE_UPLOAD_PATH);
 
@@ -82,7 +84,6 @@ public class LocalSendClient {
 			upload(client, device, file, currentSessionId, token, listener);
 
 		} catch (Exception e) {
-			e.printStackTrace();
 			if (cancelled.get()) {
 				listener.onCancelled();
 			} else {
@@ -90,6 +91,8 @@ public class LocalSendClient {
 				throw e;
 			}
 		} finally {
+			// Ensures socket connections and resources are freed immediately after every run
+			closeActiveClient();
 			resetSession();
 		}
 	}
@@ -157,18 +160,21 @@ public class LocalSendClient {
 		String session = currentSessionId;
 		LocalSendDevice device = currentDevice;
 
+		// Shut down active client to force abort active request sockets
+		closeActiveClient();
+
 		if (session == null || device == null) {
+			resetSession();
 			return;
 		}
 
-		try {
-			HttpClient client = createHttpClient(device);
+		try (HttpClient cancelClient = createHttpClient(device)) {
 			URI uri = URI.create(device.getBaseUrl() + LocalSendProtocol.CANCEL_PATH + "?sessionId=" + encode(session));
 
 			HttpRequest request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(10))
 					.POST(HttpRequest.BodyPublishers.noBody()).build();
 
-			client.sendAsync(request, HttpResponse.BodyHandlers.discarding());
+			cancelClient.sendAsync(request, HttpResponse.BodyHandlers.discarding());
 		} catch (Exception ignored) {
 		} finally {
 			resetSession();
@@ -180,6 +186,17 @@ public class LocalSendClient {
 		currentDevice = null;
 	}
 
+	private synchronized void closeActiveClient() {
+		if (activeClient != null) {
+			try {
+				activeClient.close();
+			} catch (Exception ignored) {
+			} finally {
+				activeClient = null;
+			}
+		}
+	}
+
 	private HttpClient createHttpClient(LocalSendDevice device) throws Exception {
 		System.setProperty("jdk.internal.httpclient.disableHostnameVerification", "true");
 
@@ -189,7 +206,6 @@ public class LocalSendClient {
 
 		if (LocalSendProtocol.PROTOCOL_HTTPS.equalsIgnoreCase(device.getProtocol())) {
 
-			// Trust-all server certs (LocalSend peers use self-signed certs)
 			TrustManager[] trustManagers = {
 				new X509TrustManager() {
 					@Override public void checkClientTrusted(X509Certificate[] chain, String authType) {}
@@ -198,13 +214,6 @@ public class LocalSendClient {
 				}
 			};
 
-			// Our own client identity cert, presented when the server requests one.
-			// Wrapped so it is ALWAYS offered, regardless of the issuer/key-type
-			// constraints the server advertises in its CertificateRequest — LocalSend
-			// peers use self-signed certs with no real CA chain, so the JDK's default
-			// X509KeyManager filtering would otherwise decide "no matching certificate"
-			// and silently send an empty Certificate message, causing the server to
-			// abort the handshake with a certificate_required alert.
 			KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 			kmf.init(LocalSendIdentity.getKeyStore(), LocalSendIdentity.getKeyStorePassword());
 
@@ -228,15 +237,6 @@ public class LocalSendClient {
 		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
 
-	/**
-	 * Wraps the given key managers so that, for RSA client-certificate
-	 * requests, the fixed {@code alias} is always returned — instead of
-	 * letting the JDK filter candidates against the server's requested
-	 * issuers/key types and potentially decide none match. Necessary for
-	 * interop with LocalSend peers, whose self-signed server certs issue
-	 * CertificateRequest messages that a strict X509KeyManager will reject
-	 * our equally self-signed client certificate against.
-	 */
 	private static javax.net.ssl.KeyManager[] forceAlias(javax.net.ssl.KeyManager[] keyManagers, String alias) {
 		javax.net.ssl.KeyManager[] result = new javax.net.ssl.KeyManager[keyManagers.length];
 		for (int i = 0; i < keyManagers.length; i++) {
