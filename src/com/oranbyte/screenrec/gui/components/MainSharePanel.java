@@ -55,7 +55,7 @@ public class MainSharePanel extends JPanel implements Scrollable {
 
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		setBorder(new EmptyBorder(22, 22, 22, 22));
-		setBackground(ShareDialog.BG);
+		setBackground(dialog.getShareDialogBackground());
 
 		initUI();
 	}

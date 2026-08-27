@@ -42,10 +42,8 @@
 │       └── LocalSendSslContext.java
 
 
-issues : 
-1. file sharing at multiple locations
-2. connection timeout
-3. once sent - reset the nearby sharing 
-
-
+Issues : 
+1. File sharing at multiple locations
+2. Connection timeout
+3. Once sent - reset the nearby sharing 
 

@@ -21,7 +21,7 @@ import com.oranbyte.screenrec.gui.components.MainSharePanel;
 public class ShareDialog extends JDialog {
 
 	private static final long serialVersionUID = 1L;
-	public static final Color BG = AppColors.BACKGROUND;
+	private static final Color BG = AppColors.BACKGROUND;
 
 	public static final String VIEW_MAIN = "MAIN_VIEW";
 	public static final String VIEW_ALTERNATE = "ALTERNATE_VIEW";
@@ -123,5 +123,10 @@ public class ShareDialog extends JDialog {
 		public boolean getScrollableTracksViewportHeight() {
 			return false;
 		}
+	}
+	
+	@SuppressWarnings("exports")
+	public Color getShareDialogBackground() {
+		return BG;
 	}
 }

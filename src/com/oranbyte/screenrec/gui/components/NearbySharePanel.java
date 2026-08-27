@@ -58,6 +58,7 @@ public class NearbySharePanel extends JPanel {
 	private static final Color TEXT_SECONDARY = AppColors.TEXT_SECONDARY;
 
 	private static final int MAX_RELOAD_COUNT = AppConstant.NEARBY_SCAN_TIMEOUT;
+	private static final int CONNECTION_TIMEOUT_MS = 15000; // 15 seconds connection timeout
 
 	private final ShareDialog dialog;
 	private final File file;
@@ -75,6 +76,7 @@ public class NearbySharePanel extends JPanel {
 	private int scanCount = 0;
 
 	private final Map<String, TransferState> transferStates = new HashMap<>();
+	private final Map<String, Timer> connectionTimeoutTimers = new HashMap<>();
 
 	private static class TransferState {
 		boolean isConnecting = false;
@@ -90,7 +92,7 @@ public class NearbySharePanel extends JPanel {
 
 		setLayout(new BorderLayout(0, 15));
 		setBorder(new EmptyBorder(20, 20, 20, 20));
-		setBackground(ShareDialog.BG);
+		setBackground(dialog.getShareDialogBackground());
 
 		FileShareProvider provider = new LocalSendProvider();
 		this.manager = new FileShareManager(provider);
@@ -241,7 +243,7 @@ public class NearbySharePanel extends JPanel {
 
 		deviceList = new JList<>(deviceListModel);
 		deviceList.setCellRenderer(new DeviceListCellRenderer());
-		deviceList.setBackground(ShareDialog.BG);
+		deviceList.setBackground(dialog.getShareDialogBackground());
 		deviceList.setFocusable(false);
 		deviceList.setFixedCellHeight(76);
 
@@ -311,6 +313,13 @@ public class NearbySharePanel extends JPanel {
 		return device.getAddress() + ":" + device.getPort();
 	}
 
+	public void reset() {
+		stopDiscovery();
+		deviceListModel.clear();
+		transferStates.clear();
+		clearAllTimeouts();
+	}
+
 	public void startDiscovery() {
 		stopDiscovery();
 
@@ -326,6 +335,7 @@ public class NearbySharePanel extends JPanel {
 		statusLabel.setText("Scanning for nearby devices...");
 		deviceListModel.clear();
 		transferStates.clear();
+		clearAllTimeouts();
 
 		discoveryWorker = new SwingWorker<>() {
 			@Override
@@ -404,6 +414,22 @@ public class NearbySharePanel extends JPanel {
 		}
 	}
 
+	private void clearAllTimeouts() {
+		for (Timer timer : connectionTimeoutTimers.values()) {
+			if (timer.isRunning()) {
+				timer.stop();
+			}
+		}
+		connectionTimeoutTimers.clear();
+	}
+
+	private void cancelTimeout(String deviceId) {
+		Timer timer = connectionTimeoutTimers.remove(deviceId);
+		if (timer != null && timer.isRunning()) {
+			timer.stop();
+		}
+	}
+
 	private void sendFileToDevice(ShareDevice device) {
 		if (file == null || !file.exists()) {
 			NotificationUtil.info("File Missing", "Please select a valid file to send.");
@@ -423,6 +449,28 @@ public class NearbySharePanel extends JPanel {
 			state.statusText = "Connecting...";
 			deviceList.repaint();
 
+			// Set up connection timeout timer
+			cancelTimeout(deviceId);
+			Timer timeoutTimer = new Timer(CONNECTION_TIMEOUT_MS, e -> {
+				if (state.isConnecting) {
+					state.isConnecting = false;
+					state.statusText = "Timeout";
+					deviceList.repaint();
+					NotificationUtil.error("Connection Timeout", "Could not connect to " + device.getName());
+
+					// Clear status text after 2 seconds
+					Timer resetStateTimer = new Timer(2000, ev -> {
+						state.statusText = "";
+						deviceList.repaint();
+					});
+					resetStateTimer.setRepeats(false);
+					resetStateTimer.start();
+				}
+			});
+			timeoutTimer.setRepeats(false);
+			connectionTimeoutTimers.put(deviceId, timeoutTimer);
+			timeoutTimer.start();
+
 			new SwingWorker<Void, Void>() {
 				@Override
 				protected Void doInBackground() throws Exception {
@@ -430,6 +478,7 @@ public class NearbySharePanel extends JPanel {
 						@Override
 						public void onStarted(long totalBytes) {
 							SwingUtilities.invokeLater(() -> {
+								cancelTimeout(deviceId);
 								state.isConnecting = false;
 								state.isSending = true;
 								state.statusText = "Sending...";
@@ -441,6 +490,7 @@ public class NearbySharePanel extends JPanel {
 						public void onProgress(long transferred, long total) {
 							int percent = (int) (((double) transferred / total) * 100);
 							SwingUtilities.invokeLater(() -> {
+								cancelTimeout(deviceId);
 								state.isConnecting = false;
 								state.isSending = true;
 								state.progressPercent = percent;
@@ -452,6 +502,7 @@ public class NearbySharePanel extends JPanel {
 						@Override
 						public void onCompleted() {
 							SwingUtilities.invokeLater(() -> {
+								cancelTimeout(deviceId);
 								state.isConnecting = false;
 								state.isSending = false;
 								state.isComplete = true;
@@ -473,6 +524,7 @@ public class NearbySharePanel extends JPanel {
 						@Override
 						public void onFailed(Exception e) {
 							SwingUtilities.invokeLater(() -> {
+								cancelTimeout(deviceId);
 								state.isConnecting = false;
 								state.isSending = false;
 								state.isComplete = false;
@@ -485,6 +537,7 @@ public class NearbySharePanel extends JPanel {
 						@Override
 						public void onCancelled() {
 							SwingUtilities.invokeLater(() -> {
+								cancelTimeout(deviceId);
 								state.isConnecting = false;
 								state.isSending = false;
 								state.isComplete = false;
@@ -674,5 +727,4 @@ public class NearbySharePanel extends JPanel {
 			return itemPanel;
 		}
 	}
-
 }
