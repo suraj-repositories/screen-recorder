@@ -127,77 +127,61 @@ public class LocalSendServer {
 	}
 
 	private void handlePrepareUpload(HttpExchange exchange) throws IOException {
+	    if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+	        sendStatus(exchange, 405);
+	        return;
+	    }
 
-		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+	    try {
+	        String body = readBody(exchange);
+	        JSONObject request = new JSONObject(body);
+	        JSONObject files = request.optJSONObject("files");
 
-			sendStatus(exchange, 405);
-			return;
-		}
+	        if (files == null || files.isEmpty()) {
+	            sendStatus(exchange, 400);
+	            return;
+	        }
 
-		try {
+	        // --- FIX: Clean up stale or timed-out sessions (older than 30s) ---
+	        long now = System.currentTimeMillis();
+	        sessions.entrySet().removeIf(entry -> (now - entry.getValue().createdAt) > 30_000);
 
-			String body = readBody(exchange);
+	        if (!sessions.isEmpty()) {
+	            // Force reset if previous session was abandoned
+	            sessions.clear(); 
+	        }
 
-			JSONObject request = new JSONObject(body);
+	        String sessionId = UUID.randomUUID().toString();
+	        String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
+	        Session session = new Session(sessionId, remoteAddress);
 
-			JSONObject files = request.optJSONObject("files");
+	        for (String fileId : files.keySet()) {
+	            JSONObject jsonFile = files.getJSONObject(fileId);
+	            String name = jsonFile.getString("fileName");
+	            long size = jsonFile.getLong("size");
+	            String token = UUID.randomUUID().toString();
+	            session.files.put(fileId, new PendingFile(fileId, token, name, size));
+	        }
 
-			if (files == null || files.isEmpty()) {
-				sendStatus(exchange, 400);
-				return;
-			}
+	        sessions.put(sessionId, session);
 
-			if (!sessions.isEmpty()) {
-				sendStatus(exchange, 409);
-				return;
-			}
+	        JSONObject response = new JSONObject();
+	        response.put("sessionId", sessionId);
 
-			String sessionId = UUID.randomUUID().toString();
+	        JSONObject tokens = new JSONObject();
+	        for (PendingFile file : session.files.values()) {
+	            tokens.put(file.id, file.token);
+	        }
+	        response.put("files", tokens);
 
-			String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
+	        sendJson(exchange, 200, response);
 
-			Session session = new Session(sessionId, remoteAddress);
-
-			for (String fileId : files.keySet()) {
-
-				JSONObject jsonFile = files.getJSONObject(fileId);
-
-				String name = jsonFile.getString("fileName");
-
-				long size = jsonFile.getLong("size");
-
-				String token = UUID.randomUUID().toString();
-
-				session.files.put(fileId, new PendingFile(fileId, token, name, size));
-			}
-
-			sessions.put(sessionId, session);
-
-			JSONObject response = new JSONObject();
-
-			response.put("sessionId", sessionId);
-
-			JSONObject tokens = new JSONObject();
-
-			for (PendingFile file : session.files.values()) {
-
-				tokens.put(file.id, file.token);
-			}
-
-			response.put("files", tokens);
-
-			sendJson(exchange, 200, response);
-
-		} catch (Exception e) {
-
-			System.err.println("LocalSend prepare-upload error: " + e.getMessage());
-
-			e.printStackTrace();
-
-			sendStatus(exchange, 400);
-		}
+	    } catch (Exception e) {
+	        System.err.println("LocalSend prepare-upload error: " + e.getMessage());
+	        e.printStackTrace();
+	        sendStatus(exchange, 400);
+	    }
 	}
-
 	private void handleUpload(HttpExchange exchange) throws IOException {
 
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -389,19 +373,20 @@ public class LocalSendServer {
 
 	private static class Session {
 
-		final String id;
-		final String remoteAddress;
+	    final String id;
+	    final String remoteAddress;
+	    final long createdAt = System.currentTimeMillis(); 
 
-		final Map<String, PendingFile> files = new ConcurrentHashMap<>();
+	    final Map<String, PendingFile> files = new ConcurrentHashMap<>();
 
-		Session(String id, String remoteAddress) {
-			this.id = id;
-			this.remoteAddress = remoteAddress;
-		}
+	    Session(String id, String remoteAddress) {
+	        this.id = id;
+	        this.remoteAddress = remoteAddress;
+	    }
 
-		boolean allReceived() {
-			return files.values().stream().allMatch(file -> file.received);
-		}
+	    boolean allReceived() {
+	        return files.values().stream().allMatch(file -> file.received);
+	    }
 	}
 
 	private static class PendingFile {

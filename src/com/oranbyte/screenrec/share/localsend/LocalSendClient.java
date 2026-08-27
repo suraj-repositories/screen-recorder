@@ -90,8 +90,7 @@ public class LocalSendClient {
 				listener.onFailed(e);
 				throw e;
 			}
-		} finally {
-			// Ensures socket connections and resources are freed immediately after every run
+		} finally { 
 			closeActiveClient();
 			resetSession();
 		}
@@ -186,7 +185,7 @@ public class LocalSendClient {
 		currentDevice = null;
 	}
 
-	private synchronized void closeActiveClient() {
+	protected synchronized void closeActiveClient() {
 		if (activeClient != null) {
 			try {
 				activeClient.close();
