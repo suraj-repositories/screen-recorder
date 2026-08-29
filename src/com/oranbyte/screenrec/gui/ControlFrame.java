@@ -29,6 +29,7 @@ import javax.swing.JWindow;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
+import javax.swing.plaf.metal.MetalInternalFrameTitlePane;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
@@ -153,22 +154,32 @@ public class ControlFrame extends JWindow {
 
 		closeButton = new ToolbarButton(Icons.CLOSE);
 		closeButton.setHorizontalAlignment(SwingConstants.CENTER);
+		closeButton.setVerticalAlignment(SwingConstants.CENTER);
+		closeButton.setHorizontalTextPosition(SwingConstants.CENTER);
+		closeButton.setVerticalTextPosition(SwingConstants.CENTER);
 		closeButton.setPreferredSize(new Dimension(42, 42));
+		closeButton.setMinimumSize(new Dimension(42, 42));
+		closeButton.setMaximumSize(new Dimension(42, 42));
 		closeButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 
 		closeButton.addActionListener(e -> {
+			if (state == RecordingState.RECORDING || state == RecordingState.PAUSED) {
+				cancelRecording();
+			}
+
 			selectionFrame.closeSelection();
 			setVisible(false);
 			if (recordingBorderOverlay != null) {
 				recordingBorderOverlay.setVisible(false);
 			}
 
+			mainFrame.showNoContentPanel();
+			mainFrame.setSize(mainFrame.defaultDimention);
+			mainFrame.setLocationRelativeTo(null);
 			mainFrame.setVisible(true);
 			mainFrame.toFront();
 			mainFrame.requestFocus();
-			
-		 
-			 
+
 		});
 
 		root.add(recordingControlsPanel);
@@ -188,11 +199,11 @@ public class ControlFrame extends JWindow {
 		modeControlsPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
 
 		recordingModeSwitch = new ImageSwitch(Icons.CAMERA.icon(24), Icons.VIDEO.icon(24));
-		recordingModeSwitch.addChangeListener(e -> { 
-		    ImageSwitch source = (ImageSwitch) e.getSource();
-		    RecordingMode selectedMode = source.getRecordingMode();
- 
-		    if (selectedMode != null) {
+		recordingModeSwitch.addChangeListener(e -> {
+			ImageSwitch source = (ImageSwitch) e.getSource();
+			RecordingMode selectedMode = source.getRecordingMode();
+
+			if (selectedMode != null) {
 				setRecordingMode(selectedMode);
 			}
 		});
@@ -210,7 +221,7 @@ public class ControlFrame extends JWindow {
 //		dropperButton = new ToolbarButton(Icons.DROPPER);
 //		dropperButton.setPadding(CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING, CONTROL_PADDING);
 //		dropperButton.setHorizontalAlignment(SwingConstants.CENTER); 
-		
+
 		modeControlsPanel.add(recordingModeSwitch);
 		modeControlsPanel.add(Box.createHorizontalStrut(12));
 		modeControlsPanel.add(captureModeComboBox);
@@ -316,6 +327,14 @@ public class ControlFrame extends JWindow {
 		boolean recording = newState == RecordingState.RECORDING;
 		boolean paused = newState == RecordingState.PAUSED;
 		boolean locked = recording || paused;
+
+		if (closeButton != null) {
+			if (locked) {
+				closeButton.setIcon(Icons.TRASH.icon(24));
+			} else {
+				closeButton.setIcon(Icons.CLOSE.icon(ToolbarButton.DEFAULT_ICON_SIZE));
+			}
+		}
 
 		RecordingMode rMode = getRecordingMode();
 
@@ -434,7 +453,7 @@ public class ControlFrame extends JWindow {
 
 	public void setRecordingMode(RecordingMode mode) {
 		selectionFrame.drawPanel.setRecordingMode(mode);
-		recordingModeSwitch.setRecordingMode(mode); 
+		recordingModeSwitch.setRecordingMode(mode);
 	}
 
 	public RecordingMode getRecordingMode() {
@@ -601,6 +620,71 @@ public class ControlFrame extends JWindow {
 		if (selectionFrame != null) {
 			selectionFrame.dispose();
 		}
+	}
+
+	public void cancelRecording() {
+		if (recordingTimer != null) {
+			recordingTimer.stop();
+			recordingTimer = null;
+		}
+
+		elapsedSeconds = 0;
+
+		if (recordingBorderOverlay != null) {
+			recordingBorderOverlay.setVisible(false);
+		}
+
+		if (recorder == null) {
+			restoreLocationIfMoved();
+			setState(RecordingState.IDLE);
+			return;
+		}
+
+		ScreenRecorder currentRecorder = recorder;
+		File targetFile = currentRecorder.getOutputFile();
+
+		recorder = null;
+
+		setState(RecordingState.IDLE);
+
+		Thread.ofVirtual().start(() -> {
+			try {
+				currentRecorder.cancel();
+				deleteFile(targetFile);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
+
+		restoreLocationIfMoved();
+	}
+
+	private void deleteFile(File file) {
+		if (file == null || !file.exists()) {
+			return;
+		}
+
+		if (file.delete()) {
+			System.out.println("Deleted recording: " + file.getAbsolutePath());
+			return;
+		}
+
+		for (int attempt = 0; attempt < 10; attempt++) {
+			try {
+
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+
+			if (!file.exists() || file.delete()) {
+				System.out.println("Deleted recording: " + file.getAbsolutePath());
+				return;
+			}
+		}
+
+		file.deleteOnExit();
 	}
 
 	private void restoreLocationIfMoved() {

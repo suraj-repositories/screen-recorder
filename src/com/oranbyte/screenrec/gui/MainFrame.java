@@ -45,34 +45,35 @@ public class MainFrame extends JFrame {
 	private static final String PAGE_EMPTY = "EMPTY";
 	private static final String PAGE_CONTENT = "CONTENT";
 
-	private SelectionFrame selectionFrame;
-
 	private final CardLayout cardLayout = new CardLayout();
+	private SelectionFrame selectionFrame; 
 	private JPanel panel;
 	private JPanel emptyPanel;
-	private JPanel contentPanel;
-
-	private JToolBar appToolbar;
-
+	private JPanel contentPanel; 
+	private JToolBar appToolbar; 
 	private File currentFile;
 	private ToolbarButton saveBtn;
 	private ToolbarButton copyBtn;
 	private ToolbarButton shareBtn;
+	
+	protected final Dimension defaultDimention; 
 
 	public MainFrame() {
+		defaultDimention = new Dimension(680, 350);
 		new AppUI();
 		init();
+		
 	}
 
 	private void init() {
-		
+
 		setTitle("Screen Recorder");
 		setIconImage(Icons.FAVICON.icon().getImage());
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setLayout(new BorderLayout());
 
-		setMinimumSize(new Dimension(680, 350));
-		setSize(600, 300);
+		setMinimumSize(defaultDimention);
+		setSize(defaultDimention);
 		setLocationRelativeTo(null);
 
 		appToolbar = initToolbar();
@@ -123,13 +124,10 @@ public class MainFrame extends JFrame {
 
 		newButton.addActionListener(e -> {
 
+			selectionFrame = new SelectionFrame();
 			setVisible(false);
 
 			Timer timer = new Timer(300, ev -> {
-
-				if (selectionFrame == null) {
-					selectionFrame = new SelectionFrame();
-				}
 
 				CaptureMode mode = (CaptureMode) captureMode.getSelectedItem();
 				RecordingMode rMode = modeSwitch.getRecordingMode();

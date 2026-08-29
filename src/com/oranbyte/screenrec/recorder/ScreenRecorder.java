@@ -77,6 +77,8 @@ public class ScreenRecorder {
 
 	private final AtomicInteger framesEncoded = new AtomicInteger(0);
 	private final CountDownLatch captureStarted = new CountDownLatch(1);
+	
+	private volatile boolean isCancelled = false;
 
 	private double systemResamplePos = 0.0;
 
@@ -598,46 +600,63 @@ public class ScreenRecorder {
 	}
 
 	private void finalizeWhenDone() {
-		try {
-			if (videoThread != null)
-				videoThread.join();
-			if (audioThread != null)
-				audioThread.join();
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
+	    try {
+	        if (videoThread != null)
+	            videoThread.join();
+	        if (audioThread != null)
+	            audioThread.join();
+	    } catch (InterruptedException e) {
+	        Thread.currentThread().interrupt();
+	    }
 
-		try {
-			if (writer != null) {
-				if (framesEncoded.get() > 0) {
-					writer.close();
-				} else {
-					System.err.println("No frames were recorded; skipping writer.close()");
-				}
-			}
-		} catch (Exception e) {
-			System.err.println("Failed to finalize video trailer: " + e.getMessage());
-			e.printStackTrace();
-		}
+	    try {
+	        if (writer != null) {
+	            if (framesEncoded.get() > 0) {
+	                writer.close();
+	            } else {
+	                System.err.println("No frames were recorded; skipping writer.close()");
+	            }
+	        }
+	    } catch (Exception e) {
+	        System.err.println("Failed to finalize video trailer: " + e.getMessage());
+	        e.printStackTrace();
+	    }
 
-		NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName),
-				() -> System.out.println("clicked"));
+	    if (isCancelled) {
+	        return;
+	    }
 
-		if (mainFrame != null) {
-			javax.swing.SwingUtilities.invokeLater(() -> {
-				try {
-					javafx.application.Platform.runLater(() -> {
-						try {
-							mainFrame.setVideoPanel(outputFileName);
-						} catch (Exception e) {
-							System.err.println("Failed to load video preview panel: " + e.getMessage());
-							e.printStackTrace();
-						}
-					});
-				} catch (IllegalStateException e) {
-					System.err.println("JavaFX toolkit is not initialized: " + e.getMessage());
-				}
-			});
-		}
+	    NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName),
+	            () -> System.out.println("clicked"));
+
+	    if (mainFrame != null) {
+	        javax.swing.SwingUtilities.invokeLater(() -> {
+	            try {
+	                javafx.application.Platform.runLater(() -> {
+	                    try {
+	                        mainFrame.setVideoPanel(outputFileName);
+	                    } catch (Exception e) {
+	                        System.err.println("Failed to load video preview panel: " + e.getMessage());
+	                        e.printStackTrace();
+	                    }
+	                });
+	            } catch (IllegalStateException e) {
+	                System.err.println("JavaFX toolkit is not initialized: " + e.getMessage());
+	            }
+	        });
+	    }
+	}
+	 
+	public String getOutputFileName() {
+	    return outputFileName;
+	}
+
+	public File getOutputFile() {
+	    return outputFileName != null ? new File(outputFileName) : null;
+	}
+	
+	public void cancel() {
+	    this.isCancelled = true;
+	    stop();
 	}
 }
