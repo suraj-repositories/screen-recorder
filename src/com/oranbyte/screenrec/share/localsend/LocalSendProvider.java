@@ -15,19 +15,25 @@ public class LocalSendProvider implements FileShareProvider {
     private final LocalSendDiscovery discovery;
     private final LocalSendServer server;
     private final LocalSendClient client;
-    private final ExecutorService executor;
+    
+    private ExecutorService executor;
     private volatile boolean running;
 
     public LocalSendProvider() {
         discovery = new LocalSendDiscovery(LocalSendProtocol.DEFAULT_PORT);
         server = new LocalSendServer(LocalSendProtocol.DEFAULT_PORT, this::deviceDiscovered);
         client = new LocalSendClient();
+        initExecutor();
+    }
 
-        executor = Executors.newCachedThreadPool(runnable -> {
-            Thread thread = new Thread(runnable, "LocalSend-Worker");
-            thread.setDaemon(true);
-            return thread;
-        });
+    private synchronized void initExecutor() {
+        if (executor == null || executor.isShutdown()) {
+            executor = Executors.newCachedThreadPool(runnable -> {
+                Thread thread = new Thread(runnable, "LocalSend-Worker");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
     }
 
     @Override
@@ -35,6 +41,8 @@ public class LocalSendProvider implements FileShareProvider {
         if (running) {
             return;
         }
+ 
+        initExecutor();
 
         try {
             server.start();
@@ -60,9 +68,12 @@ public class LocalSendProvider implements FileShareProvider {
         client.cancelCurrentTransfer();
         discovery.stop();
         server.stop();
-        executor.shutdownNow();
-        running = false;
 
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+        }
+
+        running = false;
         System.out.println("LocalSend provider stopped.");
     }
 
@@ -85,11 +96,11 @@ public class LocalSendProvider implements FileShareProvider {
         if (!(device instanceof LocalSendDevice localDevice)) {
             throw new IllegalArgumentException("Device is not a LocalSend device.");
         }
+ 
+        initExecutor();
 
         executor.submit(() -> {
             try { 
-                client.closeActiveClient();
-                
                 LocalSendFile localFile = new LocalSendFile(file);
                 client.send(localDevice, localFile, listener);
             } catch (Exception e) {
@@ -97,9 +108,7 @@ public class LocalSendProvider implements FileShareProvider {
                 if (listener != null) {
                     listener.onFailed(e);
                 }
-            } finally {
-                client.closeActiveClient();
-            }
+            } 
         });
     }
 
@@ -114,6 +123,18 @@ public class LocalSendProvider implements FileShareProvider {
 
     public boolean isRunning() {
         return running;
+    }
+    
+    public void startDiscovery() {
+        if (running && discovery != null) {
+            discovery.start();
+        }
+    }
+
+    public void stopDiscovery() {
+        if (discovery != null) {
+            discovery.stop();
+        }
     }
 
     public LocalSendDiscovery getDiscovery() {

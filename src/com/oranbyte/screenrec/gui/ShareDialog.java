@@ -36,6 +36,15 @@ public class ShareDialog extends JDialog {
 		super(owner, "Share File", true);
 		this.file = file;
 		initUI();
+		
+		addWindowListener(new java.awt.event.WindowAdapter() {
+	        @Override
+	        public void windowClosing(java.awt.event.WindowEvent e) {
+	            if (nearbySharePanel != null) {
+	                nearbySharePanel.reset();
+	            }
+	        }
+	    });
 	}
 
 	private void initUI() {
@@ -68,6 +77,9 @@ public class ShareDialog extends JDialog {
 	}
 
 	public void showMainView() {
+		if (nearbySharePanel != null) {
+	        nearbySharePanel.reset(); 
+	    }
 		cardLayout.show(cardsPanel, VIEW_MAIN);
 		resetScrollPosition();
 	}

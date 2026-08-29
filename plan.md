@@ -44,6 +44,6 @@
 
 Issues : 
 1. File sharing at multiple locations
-2. Connection timeout
-3. Once sent - reset the nearby sharing 
+2. Connection timeout --- done
+3. Once sent - reset the nearby sharing  -- done
 

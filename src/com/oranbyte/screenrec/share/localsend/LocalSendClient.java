@@ -54,6 +54,7 @@ public class LocalSendClient {
 
 		HttpRequest requestMessage = HttpRequest.newBuilder(uri).timeout(Duration.ofMinutes(2))
 				.header(LocalSendProtocol.HEADER_CONTENT_TYPE, LocalSendProtocol.CONTENT_TYPE_JSON)
+				.timeout(Duration.ofSeconds(30))
 				.POST(HttpRequest.BodyPublishers.ofString(request.toString())).build();
 
 		try {

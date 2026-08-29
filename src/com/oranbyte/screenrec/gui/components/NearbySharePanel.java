@@ -93,9 +93,8 @@ public class NearbySharePanel extends JPanel {
 		setLayout(new BorderLayout(0, 15));
 		setBorder(new EmptyBorder(20, 20, 20, 20));
 		setBackground(dialog.getShareDialogBackground());
-
-		FileShareProvider provider = new LocalSendProvider();
-		this.manager = new FileShareManager(provider);
+		 
+		this.manager = FileShareManager.getInstance(); 
 
 		initRotationTimer();
 		initTopControlsAndHeader();
@@ -312,74 +311,89 @@ public class NearbySharePanel extends JPanel {
 			return "";
 		return device.getAddress() + ":" + device.getPort();
 	}
+ 
+	public void startDiscovery() {
+	    if (discoveryWorker != null && !discoveryWorker.isDone()) {
+	        discoveryWorker.cancel(true);
+	    }
+
+	    if (!manager.isStarted()) {
+	        manager.start();
+	    } else {
+	        manager.startDiscovery();  
+	    }
+
+	    isScanning = true;
+	    scanCount = 0;
+	    rotationAngle = 0;
+	    rotationTimer.start();
+
+	    statusLabel.setText("Scanning for nearby devices...");
+	    deviceListModel.clear();
+	    transferStates.clear();
+	    clearAllTimeouts();
+
+	    discoveryWorker = new SwingWorker<>() {
+	        @Override
+	        protected Void doInBackground() throws Exception {
+	            while (!isCancelled() && scanCount < MAX_RELOAD_COUNT) {
+	                List<ShareDevice> devices = manager.getDevices();
+	                if (devices != null && !devices.isEmpty()) {
+	                    for (ShareDevice device : devices) {
+	                        publish(device);
+	                    }
+	                }
+	                scanCount++;
+	                Thread.sleep(1500);
+	            }
+	            return null;
+	        }
+
+	        @Override
+	        protected void process(List<ShareDevice> chunks) {
+	            for (ShareDevice device : chunks) {
+	                if (!deviceListModel.contains(device)) {
+	                    deviceListModel.addElement(device);
+	                }
+	            }
+	            updateStatusAfterScan();
+	        }
+
+	        @Override
+	        protected void done() {
+	            if (!isCancelled()) {
+	                SwingUtilities.invokeLater(() -> {
+	                    stopScanningState();
+	                    updateStatusAfterScan();
+	                });
+	            }
+	        }
+	    };
+	    discoveryWorker.execute();
+
+	    if (refreshBtn != null) {
+	        refreshBtn.setToolTipText("Scanning...");
+	    }
+	}
+
+	private void stopDiscovery() {
+	    stopScanningState();
+	    if (discoveryWorker != null && !discoveryWorker.isDone()) {
+	        discoveryWorker.cancel(true);
+	    }
+	     
+	    if (manager != null) {
+	        manager.stopDiscovery();
+	    }
+	}
 
 	public void reset() {
-		stopDiscovery();
-		deviceListModel.clear();
-		transferStates.clear();
-		clearAllTimeouts();
+	    stopDiscovery();
+	    deviceListModel.clear();
+	    transferStates.clear();
+	    clearAllTimeouts();
 	}
-
-	public void startDiscovery() {
-		stopDiscovery();
-
-		if (!manager.isStarted()) {
-			manager.start();
-		}
-
-		isScanning = true;
-		scanCount = 0;
-		rotationAngle = 0;
-		rotationTimer.start();
-
-		statusLabel.setText("Scanning for nearby devices...");
-		deviceListModel.clear();
-		transferStates.clear();
-		clearAllTimeouts();
-
-		discoveryWorker = new SwingWorker<>() {
-			@Override
-			protected Void doInBackground() throws Exception {
-				while (!isCancelled() && scanCount < MAX_RELOAD_COUNT) {
-					List<ShareDevice> devices = manager.getDevices();
-					if (devices != null && !devices.isEmpty()) {
-						for (ShareDevice device : devices) {
-							publish(device);
-						}
-					}
-					scanCount++;
-					Thread.sleep(1500);
-				}
-				return null;
-			}
-
-			@Override
-			protected void process(List<ShareDevice> chunks) {
-				for (ShareDevice device : chunks) {
-					if (!deviceListModel.contains(device)) {
-						deviceListModel.addElement(device);
-					}
-				}
-				updateStatusAfterScan();
-			}
-
-			@Override
-			protected void done() {
-				if (!isCancelled()) {
-					SwingUtilities.invokeLater(() -> {
-						stopScanningState();
-						updateStatusAfterScan();
-					});
-				}
-			}
-		};
-		discoveryWorker.execute();
-
-		if (refreshBtn != null) {
-			refreshBtn.setToolTipText("Scanning...");
-		}
-	}
-
+	
 	private void updateStatusAfterScan() {
 		int count = deviceListModel.getSize();
 		if (count == 0) {
@@ -404,15 +418,7 @@ public class NearbySharePanel extends JPanel {
 		}
 	}
 
-	private void stopDiscovery() {
-		stopScanningState();
-		if (discoveryWorker != null && !discoveryWorker.isDone()) {
-			discoveryWorker.cancel(true);
-		}
-		if (manager != null && manager.isStarted()) {
-			manager.stop();
-		}
-	}
+	 
 
 	private void clearAllTimeouts() {
 		for (Timer timer : connectionTimeoutTimers.values()) {
@@ -456,8 +462,7 @@ public class NearbySharePanel extends JPanel {
 					state.statusText = "Timeout";
 					deviceList.repaint();
 					NotificationUtil.error("Connection Timeout", "Could not connect to " + device.getName());
-
-					// Clear status text after 2 seconds
+ 
 					Timer resetStateTimer = new Timer(2000, ev -> {
 						state.statusText = "";
 						deviceList.repaint();

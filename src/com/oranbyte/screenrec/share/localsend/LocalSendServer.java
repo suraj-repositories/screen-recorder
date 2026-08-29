@@ -52,29 +52,33 @@ public class LocalSendServer {
 	}
 
 	public synchronized void start() throws Exception {
+	    if (server != null) {
+	        return;
+	    }
 
-		if (server != null) {
-			return;
-		}
+	    Files.createDirectories(downloadDirectory);
+	    SSLContext sslContext = LocalSendSslContext.createServerContext();
+	    
+	    InetSocketAddress address = new InetSocketAddress(port);
+	    server = HttpsServer.create(address, 0);
+	     
+	    server.getHttpsConfigurator(); 
+	    
+	    server.setExecutor(Executors.newCachedThreadPool(runnable -> {
+	        Thread thread = new Thread(runnable, "LocalSend-HTTP");
+	        thread.setDaemon(true);
+	        return thread;
+	    }));
 
-		Files.createDirectories(downloadDirectory);
-		SSLContext sslContext = LocalSendSslContext.createServerContext();
-		server = HttpsServer.create(new InetSocketAddress(port), 0);
-		server.setExecutor(Executors.newCachedThreadPool(runnable -> {
-			Thread thread = new Thread(runnable, "LocalSend-HTTP");
-			thread.setDaemon(true);
-			return thread;
-		}));
+	    server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
+	    server.createContext(LocalSendProtocol.REGISTER_PATH, this::handleRegister);
+	    server.createContext(LocalSendProtocol.PREPARE_UPLOAD_PATH, this::handlePrepareUpload);
+	    server.createContext(LocalSendProtocol.UPLOAD_PATH, this::handleUpload);
+	    server.createContext(LocalSendProtocol.CANCEL_PATH, this::handleCancel);
+	    server.createContext(LocalSendProtocol.INFO_PATH, this::handleInfo);
+	    server.start();
 
-		server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
-		server.createContext(LocalSendProtocol.REGISTER_PATH, this::handleRegister);
-		server.createContext(LocalSendProtocol.PREPARE_UPLOAD_PATH, this::handlePrepareUpload);
-		server.createContext(LocalSendProtocol.UPLOAD_PATH, this::handleUpload);
-		server.createContext(LocalSendProtocol.CANCEL_PATH, this::handleCancel);
-		server.createContext(LocalSendProtocol.INFO_PATH, this::handleInfo);
-		server.start();
-
-		System.out.println("LocalSend HTTPS server started on port " + port);
+	    System.out.println("LocalSend HTTPS server started on port " + port);
 	}
 
 	public synchronized void stop() {
@@ -141,15 +145,9 @@ public class LocalSendServer {
 	            sendStatus(exchange, 400);
 	            return;
 	        }
-
-	        // --- FIX: Clean up stale or timed-out sessions (older than 30s) ---
+ 
 	        long now = System.currentTimeMillis();
-	        sessions.entrySet().removeIf(entry -> (now - entry.getValue().createdAt) > 30_000);
-
-	        if (!sessions.isEmpty()) {
-	            // Force reset if previous session was abandoned
-	            sessions.clear(); 
-	        }
+	        sessions.entrySet().removeIf(entry -> (now - entry.getValue().createdAt) > 30_000); 
 
 	        String sessionId = UUID.randomUUID().toString();
 	        String remoteAddress = exchange.getRemoteAddress().getAddress().getHostAddress();
@@ -181,7 +179,8 @@ public class LocalSendServer {
 	        e.printStackTrace();
 	        sendStatus(exchange, 400);
 	    }
-	}
+	} 
+	
 	private void handleUpload(HttpExchange exchange) throws IOException {
 
 		if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -322,25 +321,17 @@ public class LocalSendServer {
 	}
 
 	private String readBody(HttpExchange exchange) throws IOException {
-
 		try (InputStream input = exchange.getRequestBody()) {
-
 			return new String(input.readAllBytes(), StandardCharsets.UTF_8);
 		}
 	}
 
 	private void sendJson(HttpExchange exchange, int status, JSONObject json) throws IOException {
-
 		byte[] data = json.toString().getBytes(StandardCharsets.UTF_8);
-
 		Headers headers = exchange.getResponseHeaders();
-
 		headers.set(LocalSendProtocol.HEADER_CONTENT_TYPE, LocalSendProtocol.CONTENT_TYPE_JSON);
-
 		exchange.sendResponseHeaders(status, data.length);
-
 		try (OutputStream output = exchange.getResponseBody()) {
-
 			output.write(data);
 		}
 	}

@@ -5,15 +5,25 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import com.oranbyte.screenrec.share.localsend.LocalSendProvider;
+
 public class FileShareManager {
+ 
+	private static FileShareManager instance;
 
-	private final FileShareProvider provider;
+    public static synchronized FileShareManager getInstance() {
+        if (instance == null) {
+            instance = new FileShareManager(new LocalSendProvider());
+        }
+        return instance;
+    }
 
-	private volatile boolean started;
+    private final FileShareProvider provider;
+    private volatile boolean started;
 
-	public FileShareManager(FileShareProvider provider) {
-		this.provider = Objects.requireNonNull(provider, "provider");
-	}
+    public FileShareManager(FileShareProvider provider) {
+        this.provider = Objects.requireNonNull(provider, "provider");
+    }
 
 	public synchronized void start() {
 
@@ -55,10 +65,8 @@ public class FileShareManager {
  
 	public void send(File file, ShareDevice device, TransferListener listener) {
 
-		Objects.requireNonNull(file, "file");
-
-		Objects.requireNonNull(device, "device");
-
+		Objects.requireNonNull(file, "file"); 
+		Objects.requireNonNull(device, "device"); 
 		Objects.requireNonNull(listener, "listener");
 
 		if (!started) {
@@ -91,5 +99,17 @@ public class FileShareManager {
 
 	public boolean isStarted() {
 		return started;
+	}
+	
+	public void startDiscovery() {
+	    if (provider instanceof LocalSendProvider localSendProvider) {
+	        localSendProvider.startDiscovery();
+	    }
+	}
+
+	public void stopDiscovery() {
+	    if (provider instanceof LocalSendProvider localSendProvider) {
+	        localSendProvider.stopDiscovery();
+	    }
 	}
 }
