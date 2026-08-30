@@ -64,10 +64,10 @@ public class VideoPlayerPanel extends JPanel {
 	private static final int CONTROLS_MAX_WIDTH = 600;
 	private static final int MAX_MEDIA_RETRIES = 3;
 	private static final long MEDIA_RETRY_DELAY_MS = 1000;
-	
+
 	private static final boolean ENABLE_LOGGING = false;
 
-	private MediaPlayer mediaPlayer;
+	private volatile MediaPlayer mediaPlayer;
 
 	private ToolbarButton playPauseButton;
 	private ToolbarButton volumeButton;
@@ -165,7 +165,7 @@ public class VideoPlayerPanel extends JPanel {
 		controlsPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 14, 8, 14));
 
 		playPauseButton = new ToolbarButton(PLAY_ICON, DEFAULT_ICON_SIZE);
-		playPauseButton.setOpaque(false); 
+		playPauseButton.setOpaque(false);
 		playPauseButton.setTransprent();
 		playPauseButton.setContentAreaFilled(false);
 		playPauseButton.setBorderPainted(false);
@@ -178,12 +178,17 @@ public class VideoPlayerPanel extends JPanel {
 
 			Platform.runLater(() -> {
 
-				MediaPlayer.Status status = mediaPlayer.getStatus();
+				MediaPlayer player = mediaPlayer;
+				if (player == null) {
+					return;
+				}
+
+				MediaPlayer.Status status = player.getStatus();
 				if (status == MediaPlayer.Status.PLAYING) {
-					mediaPlayer.pause();
+					player.pause();
 					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PLAY_ICON, DEFAULT_ICON_SIZE));
 				} else {
-					mediaPlayer.play();
+					player.play();
 					SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PAUSE_ICON, DEFAULT_ICON_SIZE));
 				}
 			});
@@ -201,7 +206,7 @@ public class VideoPlayerPanel extends JPanel {
 			if (mediaPlayer == null) {
 				return;
 			}
- 
+
 			if (System.currentTimeMillis() - lastPopupCloseTime < 250) {
 				return;
 			}
@@ -226,20 +231,25 @@ public class VideoPlayerPanel extends JPanel {
 		progressSlider = new VideoProgressSlider();
 		progressSlider.addChangeListener(e -> {
 
-			if (mediaPlayer == null)
+			MediaPlayer player = mediaPlayer;
+			if (player == null)
 				return;
 
 			if (!progressSlider.getValueIsAdjusting())
 				return;
 
-			Duration total = mediaPlayer.getTotalDuration();
+			Duration total = player.getTotalDuration();
 			if (total == null || total.isUnknown() || total.isIndefinite())
 				return;
 
 			double percent = progressSlider.getValue() / 100.0;
 			double targetSeconds = total.toSeconds() * percent;
 
-			Platform.runLater(() -> mediaPlayer.seek(Duration.seconds(targetSeconds)));
+			Platform.runLater(() -> {
+				if (mediaPlayer == player) {
+					player.seek(Duration.seconds(targetSeconds));
+				}
+			});
 		});
 
 		JPanel timelinePanel = new JPanel(new BorderLayout(8, 0));
@@ -268,7 +278,8 @@ public class VideoPlayerPanel extends JPanel {
 	}
 
 	private void showVolumePopup() {
-		if (mediaPlayer == null)
+		MediaPlayer player = mediaPlayer;
+		if (player == null)
 			return;
 
 		if (volumePopup != null) {
@@ -280,9 +291,9 @@ public class VideoPlayerPanel extends JPanel {
 
 		panel.setOpaque(false);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
-		panel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10)); 
-		
-		boolean isMuted = mediaPlayer.isMute();
+		panel.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+
+		boolean isMuted = player.isMute();
 		ToolbarButton muteButton = new ToolbarButton(Icons.SPEAKER, DEFAULT_ICON_SIZE);
 		muteButton.setAllowed(!isMuted);
 		muteButton.setOpaque(false);
@@ -293,8 +304,12 @@ public class VideoPlayerPanel extends JPanel {
 		muteButton.setBorder(null);
 		muteButton.addActionListener(e -> {
 			Platform.runLater(() -> {
-				boolean newMuteState = !mediaPlayer.isMute();
-				mediaPlayer.setMute(newMuteState);
+				MediaPlayer p = mediaPlayer;
+				if (p == null) {
+					return;
+				}
+				boolean newMuteState = !p.isMute();
+				p.setMute(newMuteState);
 
 				SwingUtilities.invokeLater(() -> {
 					muteButton.setIconSize(Icons.SPEAKER, DEFAULT_ICON_SIZE);
@@ -307,7 +322,7 @@ public class VideoPlayerPanel extends JPanel {
 		VideoProgressSlider volumeSlider = new VideoProgressSlider();
 		volumeSlider.setMinimum(0);
 		volumeSlider.setMaximum(100);
-		volumeSlider.setValue((int) Math.round(mediaPlayer.getVolume() * 100));
+		volumeSlider.setValue((int) Math.round(player.getVolume() * 100));
 		volumeSlider.setPreferredSize(new Dimension(150, 20));
 		volumeSlider.setMaximumSize(new Dimension(150, 20));
 
@@ -318,10 +333,15 @@ public class VideoPlayerPanel extends JPanel {
 		volumeSlider.addChangeListener(e -> {
 			int value = volumeSlider.getValue();
 			volumeLabel.setText(value + "%");
-			Platform.runLater(() -> mediaPlayer.setVolume(value / 100.0));
+			Platform.runLater(() -> {
+				MediaPlayer p = mediaPlayer;
+				if (p != null) {
+					p.setVolume(value / 100.0);
+				}
+			});
 		});
 
-		panel.add(muteButton); 
+		panel.add(muteButton);
 		panel.add(volumeSlider);
 		panel.add(Box.createHorizontalStrut(8));
 		panel.add(volumeLabel);
@@ -339,47 +359,47 @@ public class VideoPlayerPanel extends JPanel {
 		};
 		addHoverRecursively(panel, popupHoverAdapter);
 
-		volumePopup = new JPopupMenu(){
+		volumePopup = new JPopupMenu() {
 			private static final long serialVersionUID = 1L;
 
 			@Override
-	        public void updateUI() { 
-	            setUI(new BasicPopupMenuUI());
-	            setBorder(BorderFactory.createEmptyBorder());
-	            setOpaque(false);
-	        }
-			
+			public void updateUI() {
+				setUI(new BasicPopupMenuUI());
+				setBorder(BorderFactory.createEmptyBorder());
+				setOpaque(false);
+			}
+
 			@Override
 			protected void paintComponent(Graphics g) {
 				Graphics2D g2 = (Graphics2D) g.create();
 				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 				g2.setColor(new Color(30, 30, 30, 220));
 				g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
-				g2.dispose(); 
+				g2.dispose();
 				super.paintComponent(g);
 			}
 		};
 		volumePopup.setFocusable(false);
 		volumePopup.setBorder(BorderFactory.createEmptyBorder());
 		volumePopup.setOpaque(false);
-		volumePopup.setBackground(new Color(0, 0, 0, 0)); 
+		volumePopup.setBackground(new Color(0, 0, 0, 0));
 		volumePopup.setLayout(new BorderLayout());
-		volumePopup.add(panel, BorderLayout.CENTER); 
+		volumePopup.add(panel, BorderLayout.CENTER);
 
 		volumePopup.addPopupMenuListener(new PopupMenuListener() {
 
 			@Override
 			public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
 				SwingUtilities.invokeLater(() -> {
-			        Window window = SwingUtilities.getWindowAncestor(volumePopup);
-			        if (window instanceof Frame frame) { 
-			            if (frame.isUndecorated()) {
-			                frame.setBackground(new Color(0, 0, 0, 0));
-			            }
-			        } else if (window != null) {
-			            window.setBackground(new Color(0, 0, 0, 0));
-			        }
-			    });
+					Window window = SwingUtilities.getWindowAncestor(volumePopup);
+					if (window instanceof Frame frame) {
+						if (frame.isUndecorated()) {
+							frame.setBackground(new Color(0, 0, 0, 0));
+						}
+					} else if (window != null) {
+						window.setBackground(new Color(0, 0, 0, 0));
+					}
+				});
 			}
 
 			@Override
@@ -404,9 +424,9 @@ public class VideoPlayerPanel extends JPanel {
 		});
 
 		Dimension popupSize = panel.getPreferredSize();
-		int x = (volumeButton.getWidth() - popupSize.width) / 2; 
+		int x = (volumeButton.getWidth() - popupSize.width) / 2;
 		int y = -popupSize.height - 12;
- 
+
 		volumePopup.show(volumeButton, x, y);
 	}
 
@@ -556,13 +576,14 @@ public class VideoPlayerPanel extends JPanel {
 
 	public void play() {
 		Platform.runLater(() -> {
-			if (mediaPlayer != null) {
-				mediaPlayer.play();
+			MediaPlayer player = mediaPlayer;
+			if (player != null) {
+				player.play();
 				SwingUtilities.invokeLater(() -> playPauseButton.setIconSize(PAUSE_ICON, DEFAULT_ICON_SIZE));
 			}
 		});
 	}
- 
+
 	private void loadMedia() {
 		loadMedia(0);
 	}
@@ -575,6 +596,7 @@ public class VideoPlayerPanel extends JPanel {
 
 			if (oldPlayer != null) {
 				mediaPlayer = null;
+				currentMediaView = null;
 
 				try {
 					oldPlayer.stop();
@@ -592,16 +614,16 @@ public class VideoPlayerPanel extends JPanel {
 				SwingUtilities.invokeLater(() -> progressSlider.setTotalSeconds(0));
 
 				if (file == null || !file.isFile()) {
-					if(ENABLE_LOGGING) {
-						System.err.println("Invalid media file: " + file);						
+					if (ENABLE_LOGGING) {
+						System.err.println("Invalid media file: " + file);
 					}
 					return;
-				} 
+				}
 				waitForFileStableAsync(file, stable -> {
 
 					if (!stable) {
-						if(ENABLE_LOGGING) {
-							System.err.println("File did not become stable: " + file.getAbsolutePath());							
+						if (ENABLE_LOGGING) {
+							System.err.println("File did not become stable: " + file.getAbsolutePath());
 						}
 
 						retryLoad(retryCount);
@@ -612,9 +634,9 @@ public class VideoPlayerPanel extends JPanel {
 				});
 
 			} catch (Exception ex) {
-				if(ENABLE_LOGGING) {
+				if (ENABLE_LOGGING) {
 					System.err.println("Failed while preparing media");
-					ex.printStackTrace();					
+					ex.printStackTrace();
 				}
 
 				retryLoad(retryCount);
@@ -627,15 +649,15 @@ public class VideoPlayerPanel extends JPanel {
 		try {
 
 			if (file == null || !file.isFile()) {
-				if(ENABLE_LOGGING) {
-					System.err.println("Invalid media file: " + file);					
+				if (ENABLE_LOGGING) {
+					System.err.println("Invalid media file: " + file);
 				}
 				return;
 			}
 
 			String uri = file.toURI().toString();
 
-			if(ENABLE_LOGGING) {
+			if (ENABLE_LOGGING) {
 				System.out.println("================================");
 				System.out.println("Loading media");
 				System.out.println("Attempt  : " + (retryCount + 1));
@@ -643,7 +665,7 @@ public class VideoPlayerPanel extends JPanel {
 				System.out.println("Exists   : " + file.exists());
 				System.out.println("Size     : " + file.length());
 				System.out.println("URI      : " + uri);
-				System.out.println("================================");				
+				System.out.println("================================");
 			}
 
 			Media media = new Media(uri);
@@ -654,6 +676,9 @@ public class VideoPlayerPanel extends JPanel {
 
 			MediaView mediaView = new MediaView(player);
 			mediaView.setPreserveRatio(true);
+			mediaView.setFitWidth(fxPanel.getWidth());
+			mediaView.setFitHeight(fxPanel.getHeight());
+			currentMediaView = mediaView;
 
 			StackPane root = new StackPane(mediaView);
 
@@ -661,10 +686,9 @@ public class VideoPlayerPanel extends JPanel {
 
 			player.setOnReady(() -> {
 
-				if(ENABLE_LOGGING) {
+				if (ENABLE_LOGGING) {
 					System.out.println("Media READY: " + file.getName());
 				}
-				
 
 				int width = (int) media.getWidth();
 				int height = (int) media.getHeight();
@@ -682,12 +706,14 @@ public class VideoPlayerPanel extends JPanel {
 						remainingTimeLabel.setText(formatTime(total));
 						progressSlider.setTotalSeconds(total.toSeconds());
 					}
-
-					updateProgress();
 				});
 			});
 
 			player.setOnEndOfMedia(() -> {
+				if (mediaPlayer != player) {
+					return;
+				}
+
 				player.seek(Duration.ZERO);
 				player.pause();
 
@@ -707,23 +733,24 @@ public class VideoPlayerPanel extends JPanel {
 
 				Throwable error = player.getError();
 
-				if(ENABLE_LOGGING) {
+				if (ENABLE_LOGGING) {
 					System.err.println("================================");
 					System.err.println("JavaFX MediaPlayer ERROR");
 					System.err.println("Attempt : " + (retryCount + 1));
 					System.err.println("File    : " + file.getAbsolutePath());
 					System.err.println("Size    : " + file.length());
-					System.err.println("URI     : " + uri);					
+					System.err.println("URI     : " + uri);
 					if (error != null) {
 						error.printStackTrace();
 					}
-					
+
 					System.err.println("================================");
 				}
- 
+
 				if (mediaPlayer == player) {
 
 					mediaPlayer = null;
+					currentMediaView = null;
 
 					try {
 						player.stop();
@@ -738,9 +765,11 @@ public class VideoPlayerPanel extends JPanel {
 					retryLoad(retryCount);
 				}
 			});
+ 
+			updateProgress(player);
 
 		} catch (Exception ex) {
-			if(ENABLE_LOGGING) {				
+			if (ENABLE_LOGGING) {
 				System.err.println("Failed to create JavaFX media player");
 				System.err.println("Attempt: " + (retryCount + 1));
 				System.err.println("File: " + file);
@@ -755,16 +784,16 @@ public class VideoPlayerPanel extends JPanel {
 
 		if (retryCount >= MAX_MEDIA_RETRIES) {
 
-			if(ENABLE_LOGGING) {
-				System.err.println("Media loading failed after " + MAX_MEDIA_RETRIES + " retries: " + file);				
+			if (ENABLE_LOGGING) {
+				System.err.println("Media loading failed after " + MAX_MEDIA_RETRIES + " retries: " + file);
 			}
 
 			return;
 		}
 
 		int nextAttempt = retryCount + 1;
-		if(ENABLE_LOGGING) {
-			System.out.println("Retrying media load in " + MEDIA_RETRY_DELAY_MS + " ms...");			
+		if (ENABLE_LOGGING) {
+			System.out.println("Retrying media load in " + MEDIA_RETRY_DELAY_MS + " ms...");
 		}
 
 		Thread retryThread = new Thread(() -> {
@@ -812,9 +841,15 @@ public class VideoPlayerPanel extends JPanel {
 		thread.start();
 	}
 
-	private void updateProgress() {
-		mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
-			Duration total = mediaPlayer.getTotalDuration();
+	 
+	private void updateProgress(MediaPlayer player) {
+		player.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
+ 
+			if (mediaPlayer != player) {
+				return;
+			}
+
+			Duration total = player.getTotalDuration();
 
 			if (total == null || total.isUnknown() || total.isIndefinite() || total.toSeconds() <= 0) {
 				return;
@@ -855,8 +890,8 @@ public class VideoPlayerPanel extends JPanel {
 	public void open(String src) {
 		this.file = new File(src);
 		if (!file.exists() || file.length() == 0) {
-			if(ENABLE_LOGGING) {
-				System.err.println("File does not exist or is empty: " + src);				
+			if (ENABLE_LOGGING) {
+				System.err.println("File does not exist or is empty: " + src);
 			}
 			return;
 		}
