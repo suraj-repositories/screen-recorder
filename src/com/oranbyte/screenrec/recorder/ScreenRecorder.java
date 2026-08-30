@@ -46,6 +46,7 @@ public class ScreenRecorder {
 	private MainFrame mainFrame;
 	private volatile boolean isRecording;
 	private volatile boolean isPaused;
+	private File temporaryThumbnailFile;
 
 	private final Object pauseLock = new Object();
 	private final Object writerLock = new Object();
@@ -215,6 +216,8 @@ public class ScreenRecorder {
 			Robot robot = new Robot();
 			captureStarted.countDown();
 
+			boolean firstFrameCaptured = false;
+			
 			while (isRecording) {
 				awaitResumeIfPaused();
 				if (!isRecording)
@@ -224,6 +227,12 @@ public class ScreenRecorder {
 				long frameIntervalMs = 1000L / TARGET_FPS;
 
 				BufferedImage image = robot.createScreenCapture(captureArea);
+				
+				if (!firstFrameCaptured) {
+	                firstFrameCaptured = true;
+	                createTempThumbnail(image);
+	            }
+				
 				BufferedImage bgrImage = new BufferedImage(image.getWidth(), image.getHeight(),
 						BufferedImage.TYPE_3BYTE_BGR);
 
@@ -610,11 +619,9 @@ public class ScreenRecorder {
 
 	    try {
 	        if (writer != null) {
-	            if (framesEncoded.get() > 0) {
-	                writer.close();
-	            } else {
-	                System.err.println("No frames were recorded; skipping writer.close()");
-	            }
+	        	writer.close(); 
+	            writer = null;
+	            
 	        }
 	    } catch (Exception e) {
 	        System.err.println("Failed to finalize video trailer: " + e.getMessage());
@@ -622,11 +629,19 @@ public class ScreenRecorder {
 	    }
 
 	    if (isCancelled) {
+	    	if (temporaryThumbnailFile != null && temporaryThumbnailFile.exists()) {
+	            temporaryThumbnailFile.delete();
+	        }
 	        return;
 	    }
 
-	    NotificationUtil.notify("Video saved", outputFileName, new File(outputFileName),
-	            () -> System.out.println("clicked"));
+	    NotificationUtil.notify(
+	            "Video saved", 
+	            outputFileName, 
+	            new File(outputFileName), 
+	            temporaryThumbnailFile,  
+	            () -> System.out.println("clicked")
+	        );
 
 	    if (mainFrame != null) {
 	        javax.swing.SwingUtilities.invokeLater(() -> {
@@ -643,6 +658,22 @@ public class ScreenRecorder {
 	                System.err.println("JavaFX toolkit is not initialized: " + e.getMessage());
 	            }
 	        });
+	    }
+	}
+	
+	private void createTempThumbnail(BufferedImage image) {
+	    try {
+	        File tempDir = new File(System.getProperty("java.io.tmpdir"), "screenrec_thumbs");
+	        if (!tempDir.exists()) {
+	            tempDir.mkdirs();
+	        }
+	         
+	        this.temporaryThumbnailFile = File.createTempFile("thumb_", ".jpg", tempDir);
+	        this.temporaryThumbnailFile.deleteOnExit();
+
+	        javax.imageio.ImageIO.write(image, "jpg", this.temporaryThumbnailFile);
+	    } catch (Exception e) {
+	        System.err.println("Failed to save temporary screenshot thumbnail: " + e.getMessage());
 	    }
 	}
 	 

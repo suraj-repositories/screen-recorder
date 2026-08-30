@@ -5,7 +5,7 @@ import java.nio.file.Paths;
 
 public class AppConstant {
 
-	public static final String APP_NAME = "Screen Recorder"; 
+	public static final String APP_NAME = "Screen Recorder";
 
 	public static final String SAVE_LOCATION_SCREENSHOT = Paths
 			.get(System.getProperty("user.home"), "Pictures", "Screenshots").toString();

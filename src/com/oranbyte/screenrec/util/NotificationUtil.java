@@ -8,12 +8,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 import javax.imageio.ImageIO;
 
+import com.oranbyte.screenrec.Main;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 
@@ -77,18 +80,30 @@ public class NotificationUtil {
 			return;
 		}
 		if (isVideoExtension(getExtension(imageFile))) {
-			notifyVideo(title, message, imageFile, onClick);
+			notifyVideo(title, message, imageFile, null, onClick);
 			return;
 		}
 		File toastImage = prepareToastImage(imageFile);
 		showToast(title, message, toastImage, onClick);
 	}
 
-	public static void notifyVideo(String title, String message, File videoFile) {
-		notifyVideo(title, message, videoFile, null);
+	public static void notify(String title, String message, File file, File temporaryThumbnailFile,
+			NotificationClickListener onClick) {
+		if (file == null || !file.exists()) {
+			notify(title, message, onClick);
+			return;
+		}
+		if (isVideoExtension(getExtension(file))) {
+			notifyVideo(title, message, file, temporaryThumbnailFile, onClick);
+			return;
+		}
+		File toastImage = prepareToastImage(file);
+		showToast(title, message, toastImage, onClick);
+
 	}
 
-	public static void notifyVideo(String title, String message, File videoFile, NotificationClickListener onClick) {
+	public static void notifyVideo(String title, String message, File videoFile, File temporaryThumbnailFile,
+			NotificationClickListener onClick) {
 
 		if (videoFile == null || !videoFile.exists()) {
 			notify(title, message, onClick);
@@ -96,8 +111,8 @@ public class NotificationUtil {
 		}
 
 		new Thread(() -> {
-			File frame = extractVideoThumbnail(videoFile);
-			File img = frame != null ? prepareToastImage(frame) : Icons.PLAY_VIDEO_CIRCLE.file();
+			File img = temporaryThumbnailFile != null ? prepareToastImage(temporaryThumbnailFile)
+					: Icons.PLAY_VIDEO_CIRCLE.file();
 			showToast(title, message, img, onClick);
 		}, "VideoNotification").start();
 	}
@@ -194,28 +209,7 @@ public class NotificationUtil {
 		}
 		return false;
 	}
-
-	private static File extractVideoThumbnail(File videoFile) {
-		try {
-			File tempThumb = File.createTempFile("thumb_", ".png");
-			tempThumb.deleteOnExit();
-
-			Process process = new ProcessBuilder("ffmpeg", "-y", "-ss", "00:00:01", "-i", videoFile.getAbsolutePath(),
-					"-frames:v", "1", "-vf", "scale=" + BANNER_WIDTH + ":" + BANNER_HEIGHT, tempThumb.getAbsolutePath())
-					.start();
-			process.getInputStream().transferTo(OutputStream.nullOutputStream());
-			int exit = process.waitFor();
-
-			if (exit == 0 && tempThumb.exists() && Files.size(tempThumb.toPath()) > 0) {
-				return tempThumb;
-			}
-			tempThumb.delete();
-			return null;
-		} catch (IOException | InterruptedException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
+  
 
 	private static File prepareToastImage(File sourceImage) {
 		try {
@@ -301,4 +295,5 @@ public class NotificationUtil {
 	public static void error(String title, String message, NotificationClickListener onClick) {
 		showTrayFallback(title, message, NotificationType.ERROR, onClick);
 	}
+
 }
