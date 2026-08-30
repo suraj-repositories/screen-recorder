@@ -8,11 +8,14 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.geom.Area;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
@@ -227,24 +230,31 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g.create();
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+		// Build the dim overlay as the full panel minus the selection (and hover)
+		// rectangle, so the selection area is left completely untouched and shows
+		// the live desktop through the window's per-pixel translucency instead of
+		// a re-drawn screenshot or a solid fallback color.
+		Area overlay = new Area(new Rectangle(0, 0, getWidth(), getHeight()));
+
+		if (selectedRectangle != null) {
+			overlay.subtract(new Area(new RoundRectangle2D.Float(selectedRectangle.x, selectedRectangle.y,
+					selectedRectangle.width, selectedRectangle.height, 8, 8)));
+		}
+
+		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
+			overlay.subtract(new Area(new RoundRectangle2D.Float(hoverRectangle.x, hoverRectangle.y,
+					hoverRectangle.width, hoverRectangle.height, 8, 8)));
+		}
+
 		g2d.setColor(new Color(0, 0, 0, 150));
-		g2d.fillRect(0, 0, getWidth(), getHeight());
+		g2d.fill(overlay);
 
-		if (selectedRectangle != null && screenImage != null) {
-			Rectangle clipped = clampToImageBounds(selectedRectangle);
-			try {
-				BufferedImage cropped = screenImage.getSubimage(clipped.x, clipped.y, clipped.width, clipped.height);
-				g2d.drawImage(cropped, selectedRectangle.x, selectedRectangle.y, null);
-
-			} catch (Exception e) {
-				g2d.setColor(Color.DARK_GRAY);
-				g2d.fillRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
-						selectedRectangle.height);
-
-			}
+		if (selectedRectangle != null) {
 			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
-			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] { 6f, 4f },
-					dashPhase));
+			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f,
+					new float[] { 6f, 4f }, dashPhase));
 			g2d.drawRoundRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 					selectedRectangle.height, 8, 8);
 
@@ -253,18 +263,12 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			}
 		}
 
-		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null && screenImage != null) {
-			Rectangle clipped = clampToImageBounds(hoverRectangle);
-			try {
-				BufferedImage cropped = screenImage.getSubimage(clipped.x, clipped.y, clipped.width, clipped.height);
-				g2d.drawImage(cropped, hoverRectangle.x, hoverRectangle.y, null);
-			} catch (Exception e) {
-			}
-
+		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
 			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
 			g2d.setStroke(new BasicStroke(2f));
 			g2d.drawRoundRect(hoverRectangle.x, hoverRectangle.y, hoverRectangle.width, hoverRectangle.height, 8, 8);
 		}
+
 		g2d.dispose();
 	}
 

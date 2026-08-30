@@ -1,5 +1,15 @@
-# Screen Recorder
 
+<p align="center"><a href="https://box.oranbyte.com" target="_blank">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/logo-light.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshots/logo-dark.png">
+  <img alt="sdfsdfsdf." src="screenshots/logo-light.png" width="400" onerror="">
+</picture> 
+</a>
+</p>
+<br>
+
+# Screen Recorder
 A lightweight screen recorder application built with **Java Swing**, providing screen recording, media playback, audio capture, and local file sharing capabilities.
 
 <a href="https://box.oranbyte.com/box/docs/screenrecorder/v1.0.2">
