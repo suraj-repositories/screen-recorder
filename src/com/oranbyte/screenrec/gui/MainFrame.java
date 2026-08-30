@@ -5,6 +5,7 @@ import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.HeadlessException;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
@@ -18,6 +19,7 @@ import java.util.Collections;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -231,25 +233,50 @@ public class MainFrame extends JFrame {
 		saveBtn = new ToolbarButton(Icons.SAVE, 24);
 		saveBtn.setVisible(false);
 		saveBtn.addActionListener(e -> {
-			if (currentFile == null)
-				return;
+		    if (currentFile == null) {
+		        return;
+		    }
+ 
+		    JFileChooser fileChooser = new JFileChooser(currentFile.getParentFile()) {
+		        /**
+				 * 
+				 */
+				private static final long serialVersionUID = 1L;
 
-			JFileChooser fileChooser = new JFileChooser(currentFile.getParentFile());
-			fileChooser.setSelectedFile(currentFile);
+				@Override
+		        protected JDialog createDialog(Component parent) throws HeadlessException {
+		            JDialog dialog = super.createDialog(parent);
+		            dialog.setIconImage(Icons.FAVICON.icon(24).getImage());
+		            return dialog;
+		        }
+		    };
 
-			int result = fileChooser.showSaveDialog(appToolbar);
-			if (result == JFileChooser.APPROVE_OPTION) {
-				File destFile = fileChooser.getSelectedFile();
-				try {
-					Files.copy(currentFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		    fileChooser.setSelectedFile(currentFile);
+		    fileChooser.setDialogTitle("Save File");
+ 
+		    int result = fileChooser.showSaveDialog(null);
 
-					NotificationUtil.success("Save Complete",
-							"File saved successfully to:\n" + destFile.getAbsolutePath());
+		    if (result == JFileChooser.APPROVE_OPTION) {
+		        File destFile = fileChooser.getSelectedFile();
 
-				} catch (IOException ex) {
-					NotificationUtil.error("Save Error", "Failed to save file: " + ex.getMessage());
-				}
-			}
+		        try {
+		            Files.copy(
+		                currentFile.toPath(),
+		                destFile.toPath(),
+		                StandardCopyOption.REPLACE_EXISTING
+		            );
+
+		            NotificationUtil.success(
+		                "Save Complete",
+		                "File saved successfully to:\n" + destFile.getAbsolutePath()
+		            );
+		        } catch (IOException ex) {
+		            NotificationUtil.error(
+		                "Save Error",
+		                "Failed to save file: " + ex.getMessage()
+		            );
+		        }
+		    }
 		});
 
 		copyBtn = new ToolbarButton(Icons.COPY, 24);
