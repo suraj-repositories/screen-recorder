@@ -88,7 +88,7 @@ public class ScreenRecorder {
 
 		this.captureArea = new Rectangle(captureArea.x, captureArea.y, width, height);
 
-		File saveDir = new File(AppConstant.SAVE_LOCATION);
+		File saveDir = new File(AppConstant.SAVE_LOCATION_RECORDING);
 		if (!saveDir.exists()) {
 			saveDir.mkdirs();
 		}
@@ -97,7 +97,7 @@ public class ScreenRecorder {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
 		String timestamp = LocalDateTime.now().format(formatter);
 
-		this.outputFileName = AppConstant.SAVE_LOCATION + File.separator + "Recording " + timestamp + ".mp4";
+		this.outputFileName = AppConstant.SAVE_LOCATION_RECORDING + File.separator + "Recording " + timestamp + ".mp4";
 	}
 
 	public ScreenRecorder(Rectangle captureArea, boolean isMicrophoneEnabled, boolean isSpeakerEnabled) {

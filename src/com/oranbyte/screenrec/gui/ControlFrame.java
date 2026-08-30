@@ -497,7 +497,7 @@ public class ControlFrame extends JWindow {
 			return null;
 		}
 
-		File saveDir = new File(AppConstant.SAVE_LOCATION);
+		File saveDir = new File(AppConstant.SAVE_LOCATION_SCREENSHOT);
 		if (!saveDir.exists() && !saveDir.mkdirs()) {
 			JOptionPane.showMessageDialog(this, "Failed to create save directory.");
 			restoreAfterScreenshot(wasControlFrameVisible);
@@ -506,7 +506,7 @@ public class ControlFrame extends JWindow {
 
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
 		String timestamp = LocalDateTime.now().format(formatter);
-		String outputFileName = AppConstant.SAVE_LOCATION + File.separator + "Screenshot " + timestamp + ".png";
+		String outputFileName = AppConstant.SAVE_LOCATION_SCREENSHOT + File.separator + "Screenshot " + timestamp + ".png";
 
 		try {
 			ImageIO.write(image, "png", new File(outputFileName));
