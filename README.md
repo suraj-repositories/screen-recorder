@@ -1,8 +1,8 @@
 
 <p align="center"><a href="https://box.oranbyte.com" target="_blank">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshots/logo-light.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshots/logo-dark.png">
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/logo-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshots/logo-light.png">
   <img alt="sdfsdfsdf." src="screenshots/logo-light.png" width="400" onerror="">
 </picture> 
 </a>
