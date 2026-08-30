@@ -2,12 +2,16 @@ package com.oranbyte.screenrec.test;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-import com.oranbyte.screenrec.constants.AppUI;
 import com.oranbyte.screenrec.gui.VideoPlayerPanel;
 
 public class VideoPlayerFrame extends JFrame {
 
-    private final VideoPlayerPanel panel;
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	
+	private final VideoPlayerPanel panel;
 
     public VideoPlayerFrame(String videoPath) {
         super("Video Player");

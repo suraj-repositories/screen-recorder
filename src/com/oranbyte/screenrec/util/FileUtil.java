@@ -46,6 +46,7 @@ public final class FileUtil {
 		return extensions.contains(extension);
 	}
 
+	@SuppressWarnings("exports")
 	public static Icon resolveFileIcon(File file, int size) {
 		if (file == null)
 			return new ImageIcon();

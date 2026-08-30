@@ -41,13 +41,11 @@ import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.gui.ShareDialog;
-import com.oranbyte.screenrec.util.FileUtil;
-import com.oranbyte.screenrec.util.NotificationUtil;
 import com.oranbyte.screenrec.share.FileShareManager;
-import com.oranbyte.screenrec.share.FileShareProvider;
 import com.oranbyte.screenrec.share.ShareDevice;
 import com.oranbyte.screenrec.share.TransferListener;
-import com.oranbyte.screenrec.share.localsend.LocalSendProvider;
+import com.oranbyte.screenrec.util.FileUtil;
+import com.oranbyte.screenrec.util.NotificationUtil;
 
 public class NearbySharePanel extends JPanel {
 

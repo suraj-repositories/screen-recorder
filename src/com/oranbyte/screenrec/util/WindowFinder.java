@@ -30,6 +30,7 @@ public class WindowFinder {
 		int DwmGetWindowAttribute(HWND hwnd, int dwAttribute, RECT pvAttribute, int cbAttribute);
 	}
 
+	@SuppressWarnings("exports")
 	public static Rectangle findWindowAt(Point screenPoint, Component excluded) {
 		HWND excludedHwnd = excluded != null ? new HWND(Native.getComponentPointer(excluded)) : null;
 

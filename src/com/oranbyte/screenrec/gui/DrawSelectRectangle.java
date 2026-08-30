@@ -2,15 +2,12 @@ package com.oranbyte.screenrec.gui;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.MouseEvent;
@@ -20,16 +17,11 @@ import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.border.Border;
 
 import com.oranbyte.screenrec.constants.AppColors;
-import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
 import com.oranbyte.screenrec.constants.RecordingState;
@@ -68,7 +60,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private Rectangle hoverRectangle = null;
 	private SelectionFrame selectionFrame;
 
-	public DrawSelectRectangle(SelectionFrame selectionFrame, BufferedImage screenImage) {
+	public DrawSelectRectangle(SelectionFrame selectionFrame, @SuppressWarnings("exports") BufferedImage screenImage) {
 		this.screenImage = screenImage;
 		this.selectionFrame = selectionFrame;
 
@@ -108,7 +100,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		}
 	}
 
-	public void setCaptureMode(CaptureMode mode) {
+	public void setCaptureMode(@SuppressWarnings("exports") CaptureMode mode) {
 		if (recordingActive) {
 			return;
 		}
@@ -136,6 +128,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		repaint();
 	}
 
+	@SuppressWarnings("exports")
 	public CaptureMode getCaptureMode() {
 		return captureMode;
 	}
@@ -159,10 +152,11 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		return recordingActive;
 	}
 
-	public void setRecordingMode(RecordingMode mode) {
+	public void setRecordingMode(@SuppressWarnings("exports") RecordingMode mode) {
 		this.recordingMode = mode;
 	}
 
+	@SuppressWarnings("exports")
 	public RecordingMode getRecordingMode() {
 		return recordingMode;
 	}
@@ -219,7 +213,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 				windowBounds.width, windowBounds.height);
 	}
 
-	public void setFixedSelection(Rectangle rect) {
+	public void setFixedSelection(@SuppressWarnings("exports") Rectangle rect) {
 		if (rect == null) {
 			return;
 		}
@@ -339,7 +333,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	}
 
 	@Override
-	public void mousePressed(MouseEvent e) {
+	public void mousePressed(@SuppressWarnings("exports") MouseEvent e) {
 
 		if (recordingActive) {
 			return;
@@ -442,7 +436,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	}
 
 	@Override
-	public void mouseDragged(MouseEvent e) {
+	public void mouseDragged(@SuppressWarnings("exports") MouseEvent e) {
 
 		if (recordingActive) {
 			return;
@@ -525,7 +519,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	}
 
 	@Override
-	public void mouseReleased(MouseEvent e) {
+	public void mouseReleased(@SuppressWarnings("exports") MouseEvent e) {
 		if (recordingActive) {
 			return;
 		}
@@ -553,19 +547,19 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	}
 
 	@Override
-	public void mouseClicked(MouseEvent e) {
+	public void mouseClicked(@SuppressWarnings("exports") MouseEvent e) {
 	}
 
 	@Override
-	public void mouseEntered(MouseEvent e) {
+	public void mouseEntered(@SuppressWarnings("exports") MouseEvent e) {
 	}
 
 	@Override
-	public void mouseExited(MouseEvent e) {
+	public void mouseExited(@SuppressWarnings("exports") MouseEvent e) {
 	}
 
 	@Override
-	public void mouseMoved(MouseEvent e) {
+	public void mouseMoved(@SuppressWarnings("exports") MouseEvent e) {
 		if (recordingActive) {
 			setCursor(Cursor.getDefaultCursor());
 			return;
@@ -605,11 +599,12 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 	}
 
+	@SuppressWarnings("exports")
 	public Rectangle getSelectedRectangle() {
 		return selectedRectangle == null ? null : new Rectangle(selectedRectangle);
 	}
 
-	public void setScreenImage(BufferedImage image) {
+	public void setScreenImage(@SuppressWarnings("exports") BufferedImage image) {
 		this.screenImage = image;
 	}
 

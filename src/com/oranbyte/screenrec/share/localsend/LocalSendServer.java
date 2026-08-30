@@ -364,14 +364,12 @@ public class LocalSendServer {
 
 	private static class Session {
 
-	    final String id;
 	    final String remoteAddress;
 	    final long createdAt = System.currentTimeMillis(); 
 
 	    final Map<String, PendingFile> files = new ConcurrentHashMap<>();
 
 	    Session(String id, String remoteAddress) {
-	        this.id = id;
 	        this.remoteAddress = remoteAddress;
 	    }
 

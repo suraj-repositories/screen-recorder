@@ -12,10 +12,7 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
 import javax.swing.JWindow;
-import javax.swing.SwingConstants;
 
 import com.oranbyte.screenrec.constants.CaptureMode;
 import com.oranbyte.screenrec.constants.RecordingMode;
@@ -64,6 +61,7 @@ public class SelectionFrame extends JWindow {
 		setVisible(true);
 	}
 
+	@SuppressWarnings("exports")
 	public Rectangle getCaptureBounds() {
 		return drawPanel.getSelectedRectangle();
 	}
@@ -121,10 +119,11 @@ public class SelectionFrame extends JWindow {
 		super.dispose();
 	}
 
-	public void setCaptureMode(CaptureMode mode) {
+	public void setCaptureMode(@SuppressWarnings("exports") CaptureMode mode) {
 		controlFrame.captureModeComboBox.setSelectedItem(mode);
 	}
 
+	@SuppressWarnings("exports")
 	public CaptureMode getCaptureMode() {
 		if (controlFrame == null) {
 			return CaptureMode.RECTANGLE;
@@ -132,11 +131,12 @@ public class SelectionFrame extends JWindow {
 		return controlFrame.getCaptureMode();
 	}
 
+	@SuppressWarnings("exports")
 	public RecordingMode getRecordingMode() {
 		return controlFrame == null ? RecordingMode.SCREENSHOT : controlFrame.getRecordingMode();
 	}
 
-	public void setRecordingMode(RecordingMode mode) {
+	public void setRecordingMode(@SuppressWarnings("exports") RecordingMode mode) {
 		controlFrame.recordingModeSwitch.setRecordingMode(mode);
 	}
 

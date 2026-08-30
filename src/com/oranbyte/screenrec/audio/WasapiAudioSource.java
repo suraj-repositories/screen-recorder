@@ -23,7 +23,6 @@ public class WasapiAudioSource implements SystemAudioSource {
 	private static final int AUDCLNT_STREAMFLAGS_LOOPBACK = 0x00020000;
 	private static final int AUDCLNT_STREAMFLAGS_EVENTCALLBACK = 0x00040000;
 	private static final int AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM = 0x80000000;
-	private static final int AUDCLNT_E_UNSUPPORTED_FORMAT = 0x88890008;
 	private static final long POLL_SLEEP_MS = 3L;
 
 	private final Mode mode;

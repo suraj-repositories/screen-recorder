@@ -21,12 +21,13 @@ public class Win32IconUtil {
 	public interface MyUser32 extends User32 {
 		MyUser32 INSTANCE = Native.load("user32", MyUser32.class, W32APIOptions.DEFAULT_OPTIONS);
 
-		boolean DrawIcon(HDC hDC, int X, int Y, HICON hIcon);
+		boolean DrawIcon(@SuppressWarnings("exports") HDC hDC, int X, int Y, @SuppressWarnings("exports") HICON hIcon);
 
-		boolean DrawIconEx(HDC hdc, int xLeft, int yTop, HICON hIcon, int cxWidth, int cyWidth, int istepIfAniCur,
-				Pointer hbrFlickerFreeDraw, int diFlags);
+		boolean DrawIconEx(@SuppressWarnings("exports") HDC hdc, int xLeft, int yTop, @SuppressWarnings("exports") HICON hIcon, int cxWidth, int cyWidth, int istepIfAniCur,
+				@SuppressWarnings("exports") Pointer hbrFlickerFreeDraw, int diFlags);
 	}
 
+	@SuppressWarnings("exports")
 	public static BufferedImage hIconToBufferedImage(HICON hIcon) {
 		int size = 32;
 		HDC screenDC = MyUser32.INSTANCE.GetDC(null);

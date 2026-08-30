@@ -32,7 +32,7 @@ public class ShareDialog extends JDialog {
 	private JScrollPane scrollPane;
 	private NearbySharePanel nearbySharePanel;
 
-	public ShareDialog(Frame owner, File file) {
+	public ShareDialog(@SuppressWarnings("exports") Frame owner, File file) {
 		super(owner, "Share File", true);
 		this.file = file;
 		initUI();
@@ -90,7 +90,7 @@ public class ShareDialog extends JDialog {
 		nearbySharePanel.startDiscovery();
 	}
 
-	public void setViewPanel(JComponent component, String viewName) {
+	public void setViewPanel(@SuppressWarnings("exports") JComponent component, String viewName) {
 		cardsPanel.add(component, viewName);
 		cardLayout.show(cardsPanel, viewName);
 		resetScrollPosition();

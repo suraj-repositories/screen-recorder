@@ -30,7 +30,6 @@ import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.basic.BasicPopupMenuUI;
 
-import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.Icons;
 import com.oranbyte.screenrec.gui.components.ToolbarButton;
@@ -54,7 +53,6 @@ public class VideoPlayerPanel extends JPanel {
 	private static final Icons PLAY_ICON = Icons.PLAY_WHITE;
 	private static final Icons PAUSE_ICON = Icons.PAUSE_WHITE;
 	private static final Icons SPEAKER_ICON = Icons.SPEAKER;
-	
 
 	private static final int DEFAULT_ICON_SIZE = 24;
 	private static final int CONTROL_HEIGHT = 56;
@@ -90,7 +88,6 @@ public class VideoPlayerPanel extends JPanel {
 	private Timer animTimer;
 
 	private File file;
-	private MainFrame mainFrame;
 	private Consumer<Dimension> onVideoReady;
 	private JPopupMenu volumePopup;
 	private long lastPopupCloseTime = 0;
@@ -146,7 +143,6 @@ public class VideoPlayerPanel extends JPanel {
 
 	public VideoPlayerPanel(MainFrame mainFrame) {
 		this();
-		this.mainFrame = mainFrame;
 	}
 
 	private void createControls() {

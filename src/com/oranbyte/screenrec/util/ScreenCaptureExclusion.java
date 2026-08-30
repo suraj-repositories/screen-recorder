@@ -17,7 +17,7 @@ public class ScreenCaptureExclusion {
 		boolean SetWindowDisplayAffinity(Pointer hwnd, int dwAffinity);
 	}
 
-	public static void excludeFromCapture(Window window) {
+	public static void excludeFromCapture(@SuppressWarnings("exports") Window window) {
 		if (!isWindows()) {
 			return;
 		}

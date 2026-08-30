@@ -13,6 +13,7 @@ public enum NotificationType {
 		this.trayType = trayType;
 	}
 
+	@SuppressWarnings("exports")
 	public TrayIcon.MessageType getTrayType() {
 		return trayType;
 	}

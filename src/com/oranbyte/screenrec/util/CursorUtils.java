@@ -22,7 +22,11 @@ public final class CursorUtils {
 	public static class CURSORINFO extends Structure {
 		public int cbSize;
 		public int flags;
+		
+		@SuppressWarnings("exports")
 		public HICON hCursor;
+		
+		@SuppressWarnings("exports")
 		public POINT ptScreenPos;
 
 		public CURSORINFO() {
@@ -30,7 +34,7 @@ public final class CursorUtils {
 			cbSize = size();
 		}
 
-		public CURSORINFO(com.sun.jna.Pointer p) {
+		public CURSORINFO(@SuppressWarnings("exports") com.sun.jna.Pointer p) {
 			super(p);
 			read();
 		}
@@ -48,7 +52,9 @@ public final class CursorUtils {
 	}
 
 	public static class CursorSnapshot {
+		@SuppressWarnings("exports")
 		public BufferedImage image;
+		
 		public int hotspotX;
 		public int hotspotY;
 		public int screenX;

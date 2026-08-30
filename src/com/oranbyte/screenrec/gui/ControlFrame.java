@@ -29,7 +29,6 @@ import javax.swing.JWindow;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import javax.swing.plaf.metal.MetalInternalFrameTitlePane;
 
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
@@ -313,7 +312,7 @@ public class ControlFrame extends JWindow {
 		recordingControlsPanel.add(speakerToggleButton);
 	}
 
-	public void setState(RecordingState newState) {
+	public void setState(@SuppressWarnings("exports") RecordingState newState) {
 		if (!SwingUtilities.isEventDispatchThread()) {
 			SwingUtilities.invokeLater(() -> setState(newState));
 			return;
@@ -417,6 +416,7 @@ public class ControlFrame extends JWindow {
 		mainFrame.setVisible(true);
 	}
 
+	@SuppressWarnings("exports")
 	public RecordingState getState() {
 		return state;
 	}
@@ -438,24 +438,27 @@ public class ControlFrame extends JWindow {
 		setVisible(true);
 	}
 
+	@SuppressWarnings("exports")
 	public CaptureMode getCaptureMode() {
 		return (CaptureMode) captureModeComboBox.getSelectedItem();
 	}
 
+	@SuppressWarnings("exports")
 	public JButton getCloseButton() {
 		return closeButton;
 	}
 
-	public void setCaptureMode(CaptureMode mode) {
+	public void setCaptureMode(@SuppressWarnings("exports") CaptureMode mode) {
 		selectionFrame.drawPanel.setCaptureMode(mode);
 		captureModeComboBox.setSelectedItem(mode);
 	}
 
-	public void setRecordingMode(RecordingMode mode) {
+	public void setRecordingMode(@SuppressWarnings("exports") RecordingMode mode) {
 		selectionFrame.drawPanel.setRecordingMode(mode);
 		recordingModeSwitch.setRecordingMode(mode);
 	}
 
+	@SuppressWarnings("exports")
 	public RecordingMode getRecordingMode() {
 		return recordingModeSwitch.getRecordingMode();
 	}
@@ -694,6 +697,7 @@ public class ControlFrame extends JWindow {
 		}
 	}
 
+	@SuppressWarnings("exports")
 	public static Rectangle ensureEvenDimensions(Rectangle rect) {
 
 		if (rect == null) {

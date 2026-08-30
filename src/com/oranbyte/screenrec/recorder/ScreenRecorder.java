@@ -82,7 +82,7 @@ public class ScreenRecorder {
 
 	private double systemResamplePos = 0.0;
 
-	public ScreenRecorder(Rectangle captureArea) {
+	public ScreenRecorder(@SuppressWarnings("exports") Rectangle captureArea) {
 		int width = captureArea.width % 2 == 0 ? captureArea.width : captureArea.width - 1;
 		int height = captureArea.height % 2 == 0 ? captureArea.height : captureArea.height - 1;
 
@@ -100,13 +100,13 @@ public class ScreenRecorder {
 		this.outputFileName = AppConstant.SAVE_LOCATION_RECORDING + File.separator + "Recording " + timestamp + ".mp4";
 	}
 
-	public ScreenRecorder(Rectangle captureArea, boolean isMicrophoneEnabled, boolean isSpeakerEnabled) {
+	public ScreenRecorder(@SuppressWarnings("exports") Rectangle captureArea, boolean isMicrophoneEnabled, boolean isSpeakerEnabled) {
 		this(captureArea);
 		this.isMicrophoneEnabled = isMicrophoneEnabled;
 		this.isSpeakerEnabled = isSpeakerEnabled;
 	}
 
-	public ScreenRecorder(MainFrame mainFrame, Rectangle captureArea, boolean isMicrophoneEnabled,
+	public ScreenRecorder(MainFrame mainFrame, @SuppressWarnings("exports") Rectangle captureArea, boolean isMicrophoneEnabled,
 			boolean isSpeakerEnabled) {
 		this(captureArea, isMicrophoneEnabled, isSpeakerEnabled);
 		this.mainFrame = mainFrame;
@@ -120,7 +120,7 @@ public class ScreenRecorder {
 		this.isSpeakerEnabled = enabled;
 	}
 
-	public void setSystemAudioSource(SystemAudioSource source) {
+	public void setSystemAudioSource(@SuppressWarnings("exports") SystemAudioSource source) {
 		this.systemAudioSource = source;
 	}
 
@@ -138,8 +138,7 @@ public class ScreenRecorder {
 		try {
 			writer = ToolFactory.makeWriter(outputFileName);
 			writer.addVideoStream(0, 0, ICodec.ID.CODEC_ID_H264, captureArea.width, captureArea.height);
-
-			// Always attach audio stream to enable dynamic audio toggling mid-session
+ 
 			writer.addAudioStream(AUDIO_STREAM_INDEX, AUDIO_STREAM_INDEX, ICodec.ID.CODEC_ID_AAC, AUDIO_CHANNELS,
 					AUDIO_SAMPLE_RATE);
 			audioStreamAdded = true;

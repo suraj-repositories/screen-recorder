@@ -24,7 +24,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -190,7 +189,7 @@ public class MainFrame extends JFrame {
 		cardLayout.show(panel, PAGE_EMPTY);
 	}
 
-	public void setPanelContent(Component component) {
+	public void setPanelContent(@SuppressWarnings("exports") Component component) {
 
 		contentPanel.removeAll();
 		contentPanel.add(component, BorderLayout.CENTER);

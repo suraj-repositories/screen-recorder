@@ -10,9 +10,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 
@@ -35,8 +33,6 @@ public class NotificationUtil {
 	private static final String[] VIDEO_EXTENSIONS = { "mp4", "mkv", "avi", "mov", "webm" };
 	private static final int BANNER_WIDTH = 364;
 	private static final int BANNER_HEIGHT = 180;
-
-	private static final Map<String, Runnable> actions = new ConcurrentHashMap<>();
 
 	static {
 		if (SystemTray.isSupported()) {

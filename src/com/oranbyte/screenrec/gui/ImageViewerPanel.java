@@ -32,8 +32,6 @@ public class ImageViewerPanel extends JPanel {
 	private static final double MAX_ZOOM = 10.0;
 	private static final double ZOOM_FACTOR = 1.1;
 
-	private static final int pad = 10;
-
 	public ImageViewerPanel() {
 
 		super(new BorderLayout());
@@ -118,7 +116,7 @@ public class ImageViewerPanel extends JPanel {
 		imagePanel.repaint();
 	}
 
-	public void setImage(BufferedImage image) {
+	public void setImage(@SuppressWarnings("exports") BufferedImage image) {
 
 		zoom = 1.0;
 
@@ -128,6 +126,7 @@ public class ImageViewerPanel extends JPanel {
 		centerImage();
 	}
 
+	@SuppressWarnings("exports")
 	public BufferedImage getImage() {
 		return imagePanel.getImage();
 	}
@@ -173,6 +172,7 @@ public class ImageViewerPanel extends JPanel {
 		setZoom(height / (double) imagePanel.getImage().getHeight());
 	}
 
+	@SuppressWarnings("exports")
 	public JScrollPane getScrollPane() {
 		return scrollPane;
 	}
