@@ -22,6 +22,7 @@ import javax.swing.plaf.basic.BasicComboPopup;
 import com.oranbyte.screenrec.constants.AppColors;
 import com.oranbyte.screenrec.constants.AppConstant;
 import com.oranbyte.screenrec.constants.CaptureMode;
+import com.oranbyte.screenrec.constants.Icons;
 
 @SuppressWarnings("serial")
 public class ToolbarComboBox<E> extends JComboBox<E> {
@@ -189,7 +190,7 @@ public class ToolbarComboBox<E> extends JComboBox<E> {
         protected javax.swing.JButton createArrowButton() {
 
             javax.swing.JButton button =
-                    new javax.swing.JButton("▼");
+                    new javax.swing.JButton(Icons.DOWN.icon(24));
 
             button.setBorder(
                     BorderFactory.createEmptyBorder()
