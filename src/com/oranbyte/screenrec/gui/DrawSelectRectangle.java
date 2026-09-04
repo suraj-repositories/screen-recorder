@@ -231,25 +231,24 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g.create();
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-		// Build the dim overlay as the full panel minus the selection (and hover)
-		// rectangle, so the selection area is left completely untouched and shows
-		// the live desktop through the window's per-pixel translucency instead of
-		// a re-drawn screenshot or a solid fallback color.
+ 
+		g2d.setColor(new Color(0, 0, 0, 1));
+	    g2d.fillRect(0, 0, getWidth(), getHeight());
+		
 		Area overlay = new Area(new Rectangle(0, 0, getWidth(), getHeight()));
 
 		if (selectedRectangle != null) {
-			overlay.subtract(new Area(new RoundRectangle2D.Float(selectedRectangle.x, selectedRectangle.y,
-					selectedRectangle.width, selectedRectangle.height, 8, 8)));
-		}
+	        overlay.subtract(new Area(new RoundRectangle2D.Float(selectedRectangle.x, selectedRectangle.y,
+	                selectedRectangle.width, selectedRectangle.height, 8, 8)));
+	    }
 
-		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
-			overlay.subtract(new Area(new RoundRectangle2D.Float(hoverRectangle.x, hoverRectangle.y,
-					hoverRectangle.width, hoverRectangle.height, 8, 8)));
-		}
+	    if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
+	        overlay.subtract(new Area(new RoundRectangle2D.Float(hoverRectangle.x, hoverRectangle.y,
+	                hoverRectangle.width, hoverRectangle.height, 8, 8)));
+	    }
 
-		g2d.setColor(new Color(0, 0, 0, 150));
-		g2d.fill(overlay);
+	    g2d.setColor(new Color(0, 0, 0, 150));
+	    g2d.fill(overlay);
 
 		if (selectedRectangle != null) {
 			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);

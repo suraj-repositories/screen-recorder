@@ -129,13 +129,12 @@ public class MainFrame extends JFrame {
 			setVisible(false);
 
 			Timer timer = new Timer(300, ev -> {
-
 				CaptureMode mode = (CaptureMode) captureMode.getSelectedItem();
 				RecordingMode rMode = modeSwitch.getRecordingMode();
-
+				
 				selectionFrame.activate(this);
-				selectionFrame.setCaptureMode(mode);
 				selectionFrame.setRecordingMode(rMode);
+				selectionFrame.setCaptureMode(mode);
 
 			});
 

@@ -10,6 +10,7 @@ import java.awt.HeadlessException;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Toolkit;
+import java.awt.geom.Area;
 import java.awt.image.BufferedImage;
 
 import javax.swing.JWindow;
@@ -102,6 +103,7 @@ public class SelectionFrame extends JWindow {
 		controlFrame.setVisible(true);
 		controlFrame.toFront();
 		controlFrame.requestFocus();
+		
 		drawPanel.setControlFrame(controlFrame);
 	}
 

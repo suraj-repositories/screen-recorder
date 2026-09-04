@@ -90,8 +90,8 @@ public class ControlFrame extends JWindow {
 
 		setBackground(new Color(0, 0, 0, 0));
 
-		initializeUI();
-
+		initializeUI(); 
+		
 		setState(RecordingState.IDLE);
 
 		pack();
@@ -313,6 +313,7 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void setState(@SuppressWarnings("exports") RecordingState newState) {
+		  
 		if (!SwingUtilities.isEventDispatchThread()) {
 			SwingUtilities.invokeLater(() -> setState(newState));
 			return;
@@ -336,7 +337,7 @@ public class ControlFrame extends JWindow {
 		}
 
 		RecordingMode rMode = getRecordingMode();
-
+  
 		if (rMode == RecordingMode.VIDEO) {
 			modeControlsPanel.setVisible(idle);
 			recordingControlsPanel.setVisible(!idle);
@@ -365,9 +366,7 @@ public class ControlFrame extends JWindow {
 					String screenshot = takeScreenshot();
 					if (screenshot != null) {
 						try {
-
 							showScreenshot(screenshot);
-
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
