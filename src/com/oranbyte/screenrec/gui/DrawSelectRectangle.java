@@ -52,6 +52,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 	private RecordingMode recordingMode;
 
 	private boolean recordingActive = false;
+	private boolean interactionStarted = false;
 
 	private ControlFrame controlFrame;
 
@@ -231,29 +232,29 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		super.paintComponent(g);
 		Graphics2D g2d = (Graphics2D) g.create();
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
- 
+
 		g2d.setColor(new Color(0, 0, 0, 1));
-	    g2d.fillRect(0, 0, getWidth(), getHeight());
-		
+		g2d.fillRect(0, 0, getWidth(), getHeight());
+
 		Area overlay = new Area(new Rectangle(0, 0, getWidth(), getHeight()));
 
 		if (selectedRectangle != null) {
-	        overlay.subtract(new Area(new RoundRectangle2D.Float(selectedRectangle.x, selectedRectangle.y,
-	                selectedRectangle.width, selectedRectangle.height, 8, 8)));
-	    }
+			overlay.subtract(new Area(new RoundRectangle2D.Float(selectedRectangle.x, selectedRectangle.y,
+					selectedRectangle.width, selectedRectangle.height, 8, 8)));
+		}
 
-	    if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
-	        overlay.subtract(new Area(new RoundRectangle2D.Float(hoverRectangle.x, hoverRectangle.y,
-	                hoverRectangle.width, hoverRectangle.height, 8, 8)));
-	    }
+		if (captureMode == CaptureMode.WINDOW && !isCreated && hoverRectangle != null) {
+			overlay.subtract(new Area(new RoundRectangle2D.Float(hoverRectangle.x, hoverRectangle.y,
+					hoverRectangle.width, hoverRectangle.height, 8, 8)));
+		}
 
-	    g2d.setColor(new Color(0, 0, 0, 150));
-	    g2d.fill(overlay);
+		g2d.setColor(new Color(0, 0, 0, 150));
+		g2d.fill(overlay);
 
 		if (selectedRectangle != null) {
 			g2d.setColor(AppColors.SELECTION_OUTLINE_COLOR);
-			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f,
-					new float[] { 6f, 4f }, dashPhase));
+			g2d.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[] { 6f, 4f },
+					dashPhase));
 			g2d.drawRoundRect(selectedRectangle.x, selectedRectangle.y, selectedRectangle.width,
 					selectedRectangle.height, 8, 8);
 
@@ -350,7 +351,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 					selectedRectangle = clampToImageBounds(new Rectangle(hoverRectangle));
 					isCreated = true;
 					hoverRectangle = null;
-					notifyState(RecordingState.READY);
+					interactionStarted = false; 
+					notifyState(RecordingState.READY); 
 					repaint();
 				}
 				return;
@@ -359,6 +361,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			if (captureMode == CaptureMode.ENTIRE_SCREEN) {
 				selectedRectangle = computeFixedRectangle(captureMode);
 				isCreated = true;
+				interactionStarted = false;
 				notifyState(RecordingState.READY);
 				repaint();
 				return;
@@ -366,6 +369,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
+			interactionStarted = true;
 			notifyState(RecordingState.SELECTING);
 			return;
 		}
@@ -418,12 +422,13 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 				anchorX = fixedX;
 				anchorY = fixedY;
 			}
-
 			anchorPoint = new Point(anchorX, anchorY);
+			interactionStarted = true;
 			notifyState(RecordingState.SELECTING);
 		} else if (selectedRectangle.contains(p)) {
 			dragOffset = new Point(p.x - selectedRectangle.x, p.y - selectedRectangle.y);
 			isMoving = true;
+			interactionStarted = true;
 			notifyState(RecordingState.SELECTING);
 		} else if (captureMode == CaptureMode.RECTANGLE) {
 			isCreated = false;
@@ -433,6 +438,7 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			anchorPoint = null;
 			startPoint = p;
 			selectedRectangle = new Rectangle(p.x, p.y, 0, 0);
+			interactionStarted = true;
 			notifyState(RecordingState.SELECTING);
 		}
 
@@ -527,16 +533,24 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 			return;
 		}
 
+		if (!interactionStarted) {
+			sizeLabel.hideAnimated();
+			repaint();
+			return;
+		}
+
 		boolean wasFreshSelection = !isCreated;
 
 		if (!isCreated) {
 			isCreated = true;
 		}
+
 		isMoving = false;
 		dragOffset = null;
 		activeHandle = NONE;
 		anchorPoint = null;
 		startPoint = null;
+		interactionStarted = false;
 
 		if (selectedRectangle != null && selectedRectangle.width >= MIN_SIZE && selectedRectangle.height >= MIN_SIZE) {
 			notifyState(RecordingState.READY);
@@ -616,8 +630,8 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		if (selectedRectangle == null) {
 			return;
 		}
-		
-		if(recordingMode == RecordingMode.SCREENSHOT) {  
+
+		if (recordingMode == RecordingMode.SCREENSHOT) {
 			sizeLabel.hideInstantly();
 			revalidate();
 			repaint();
@@ -625,7 +639,6 @@ public class DrawSelectRectangle extends JPanel implements MouseListener, MouseM
 		}
 
 		Rectangle r = selectedRectangle.getBounds();
-
 		sizeLabel.setText(r.width + "x" + r.height);
 
 		Dimension d = sizeLabel.getPreferredSize();

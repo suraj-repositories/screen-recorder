@@ -313,7 +313,7 @@ public class ControlFrame extends JWindow {
 	}
 
 	public void setState(@SuppressWarnings("exports") RecordingState newState) {
-		  
+		
 		if (!SwingUtilities.isEventDispatchThread()) {
 			SwingUtilities.invokeLater(() -> setState(newState));
 			return;
@@ -372,8 +372,7 @@ public class ControlFrame extends JWindow {
 						}
 					}
 				}
-			}
-
+			} 
 		}
 
 		root.revalidate();
@@ -667,8 +666,7 @@ public class ControlFrame extends JWindow {
 		}
 
 		if (file.delete()) {
-			System.out.println("Deleted recording: " + file.getAbsolutePath());
-			return;
+			 return;
 		}
 
 		for (int attempt = 0; attempt < 10; attempt++) {
@@ -681,7 +679,6 @@ public class ControlFrame extends JWindow {
 			}
 
 			if (!file.exists() || file.delete()) {
-				System.out.println("Deleted recording: " + file.getAbsolutePath());
 				return;
 			}
 		}
