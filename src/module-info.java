@@ -1,9 +1,6 @@
 /**
  * 
  */
-/**
- * 
- */
 module ScreenRecorder {
 	
 	requires java.desktop;

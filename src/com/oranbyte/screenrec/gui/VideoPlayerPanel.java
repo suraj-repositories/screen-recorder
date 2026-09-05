@@ -40,6 +40,7 @@ import javafx.embed.swing.JFXPanel;
 import javafx.scene.Scene;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.Media;
+import javafx.scene.media.MediaException;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.util.Duration;
@@ -65,7 +66,7 @@ public class VideoPlayerPanel extends JPanel {
 	private static final int MAX_MEDIA_RETRIES = 3;
 	private static final long MEDIA_RETRY_DELAY_MS = 1000;
 
-	private static final boolean ENABLE_LOGGING = false;
+	private static final boolean ENABLE_LOGGING = true;
 
 	private volatile MediaPlayer mediaPlayer;
 
@@ -706,6 +707,9 @@ public class VideoPlayerPanel extends JPanel {
 						remainingTimeLabel.setText(formatTime(total));
 						progressSlider.setTotalSeconds(total.toSeconds());
 					}
+					
+					revalidate();
+					repaint();
 				});
 			});
 
@@ -742,6 +746,10 @@ public class VideoPlayerPanel extends JPanel {
 					System.err.println("URI     : " + uri);
 					if (error != null) {
 						error.printStackTrace();
+					}
+					
+					if (error instanceof MediaException me) {
+					    System.err.println("Error type: " + me.getType());
 					}
 
 					System.err.println("================================");

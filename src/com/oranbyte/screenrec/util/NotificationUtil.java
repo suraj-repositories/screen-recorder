@@ -71,7 +71,7 @@ public class NotificationUtil {
 	}
 
 	public static void notify(String title, String message, File imageFile, NotificationClickListener onClick) {
-		if (imageFile == null || !imageFile.exists()) {
+		if (imageFile == null || !imageFile.exists()) { 
 			notify(title, message, onClick);
 			return;
 		}
@@ -79,7 +79,7 @@ public class NotificationUtil {
 			notifyVideo(title, message, imageFile, null, onClick);
 			return;
 		}
-		File toastImage = prepareToastImage(imageFile);
+		File toastImage = prepareToastImage(imageFile);  
 		showToast(title, message, toastImage, onClick);
 	}
 
@@ -114,14 +114,14 @@ public class NotificationUtil {
 	}
 
 	private static void showToast(String title, String message, File image, NotificationClickListener onClick) {
-		if (isSnoreToastAvailable()) {
+		if (isSnoreToastAvailable()) { 
 			try {
-				runSnoreToast(title, message, image, onClick);
+				runSnoreToast(title, message, image, onClick); 
 			} catch (IOException e) {
-				showTrayFallback(title, message, onClick);
+				showTrayFallback(title, message, onClick); 
 			}
 		} else {
-			showTrayFallback(title, message, onClick);
+			showTrayFallback(title, message, onClick); 
 		}
 	}
 

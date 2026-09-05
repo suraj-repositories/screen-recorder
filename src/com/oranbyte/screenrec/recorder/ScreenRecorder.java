@@ -606,6 +606,26 @@ public class ScreenRecorder {
 	private long currentTimestampNanos() {
 		return (System.nanoTime() - startTime) - totalPausedTime.get();
 	}
+	
+	private boolean waitUntilFileReleased(File file, int maxAttempts, long delayMs) {
+	    for (int i = 0; i < maxAttempts; i++) {
+	        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "rw");
+	             java.nio.channels.FileChannel channel = raf.getChannel();
+	             java.nio.channels.FileLock lock = channel.tryLock()) {
+	            if (lock != null) {
+	                return true;
+	            }
+	        } catch (Exception e) { 
+	        }
+	        try {
+	            Thread.sleep(delayMs);
+	        } catch (InterruptedException ie) {
+	            Thread.currentThread().interrupt();
+	            return false;
+	        }
+	    }
+	    return false;
+	}
 
 	private void finalizeWhenDone() {
 	    try {
@@ -634,6 +654,9 @@ public class ScreenRecorder {
 	        }
 	        return;
 	    }
+	    
+	    File outFile = new File(outputFileName);
+	    waitUntilFileReleased(outFile, 10, 150);
 
 	    NotificationUtil.notify(
 	            "Video saved", 
@@ -648,7 +671,7 @@ public class ScreenRecorder {
 	            try {
 	                javafx.application.Platform.runLater(() -> {
 	                    try {
-	                        mainFrame.setVideoPanel(outputFileName);
+	                        mainFrame.setVideoPanel(outputFileName, captureArea);
 	                    } catch (Exception e) {
 	                        System.err.println("Failed to load video preview panel: " + e.getMessage());
 	                        e.printStackTrace();

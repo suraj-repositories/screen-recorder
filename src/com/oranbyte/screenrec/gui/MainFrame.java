@@ -6,6 +6,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.HeadlessException;
+import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
@@ -50,7 +51,7 @@ public class MainFrame extends JFrame {
 	private SelectionFrame selectionFrame; 
 	private JPanel panel;
 	private JPanel emptyPanel;
-	private JPanel contentPanel; 
+	private JPanel contentPanel;
 	private JToolBar appToolbar; 
 	private File currentFile;
 	private ToolbarButton saveBtn;
@@ -198,19 +199,20 @@ public class MainFrame extends JFrame {
 		cardLayout.show(panel, PAGE_CONTENT);
 	}
 
-	public void setVideoPanel(String src) {
+	public void setVideoPanel(String src, @SuppressWarnings("exports") Rectangle captureArea) {
 
 		VideoPlayerPanel player = new VideoPlayerPanel(this);
 		player.open(src);
-		player.setOnVideoReady(size -> {
-			resizeWindow(player, size.width, size.height);
-		});
+		
 		setActionButtons(new File(src));
-
 		setPanelContent(player);
+		
+		player.setOnVideoReady(size -> {
+			resizeWindow(captureArea.getWidth(), captureArea.getHeight());
+		});
 	}
 
-	private void resizeWindow(VideoPlayerPanel player, int videoWidth, int videoHeight) {
+	private void resizeWindow(double videoWidth, double videoHeight) {
 		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
 
 		int maxWidth = (int) (screen.width * 0.85);
