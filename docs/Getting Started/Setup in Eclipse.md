@@ -14,6 +14,15 @@
 2. Add and select the JDK 22 installation.
 3. Open the project properties and set **Java Compiler > Compiler compliance level** to 22 or the installed compatible level.
 4. Make sure the project uses the Java module path when Eclipse asks whether a dependency belongs on the classpath or module path.
+    Right click on project click on **Build Path > Configure Build Path > Java Build Path > Library**
+
+<div style="display: flex; flex-direction: column; gap: 10px;">
+  <div style="display: flex; gap: 10px;">
+    <img src="../../img/modulepath.png" alt="Screen Recorder" width="49%"/>
+    <img src="../../img/classpath.png" alt="Screen Recorder" width="49%"/>
+  </div>
+</div>
+
 
 ## Add libraries
 

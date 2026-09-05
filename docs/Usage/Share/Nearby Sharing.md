@@ -10,6 +10,14 @@ Nearby sharing uses the LocalSend provider to find devices on the local network 
 6. Select a discovered device to start the transfer.
 7. Watch the progress indicator and cancel the transfer if necessary.
 
+<div style="display: flex; flex-direction: column; gap: 10px;">
+
+  <div style="display: flex; gap: 10px;">
+    <img src="../../../img/nearby-share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+  </div>
+
+</div>
+
 ## Troubleshooting
 
 - Confirm both devices are connected to the same network.

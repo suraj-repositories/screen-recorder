@@ -80,7 +80,6 @@ public class ScreenRecorder {
 	private final CountDownLatch captureStarted = new CountDownLatch(1);
 	
 	private volatile boolean isCancelled = false;
-
 	private double systemResamplePos = 0.0;
 
 	public ScreenRecorder(@SuppressWarnings("exports") Rectangle captureArea) {

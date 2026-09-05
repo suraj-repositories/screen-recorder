@@ -1,5 +1,13 @@
 # Other Sharing options
 
+<div style="display: flex; flex-direction: column; gap: 10px;">
+
+  <div style="display: flex; gap: 10px;">
+    <img src="../../../img/share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+  </div>
+
+</div>
+
 ## File manager
 
 Select **File Manager** to reveal the captured file in the operating system's file manager. On Windows, the application opens Explorer and selects the file. On macOS it uses Finder's reveal action; on other systems it opens the containing directory when supported.
@@ -11,3 +19,4 @@ Select **Media Viewer** to open the captured file with the desktop's associated 
 ## Clipboard copy
 
 Use the copy button in the file card or the main toolbar to put the captured file on the system clipboard. You can then paste it into a file manager, mail client, or application that accepts files.
+

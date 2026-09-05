@@ -18,5 +18,6 @@ public class AppConstant {
 	public static final int FPS = 50;
 	public static final int NEARBY_SCAN_TIMEOUT = 5;
 
-	public static final String SNORE_TOAST_PATH = Paths.get("lib", "snoretoast.exe").toAbsolutePath().toString();
+	public static final String SNORE_TOAST_PATH = Paths.get(System.getProperty("user.dir"), "lib", "snoretoast.exe")
+			.toAbsolutePath().normalize().toString();
 }

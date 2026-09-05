@@ -13,4 +13,10 @@ The dialog provides buttons for:
 
 The file is also copied to the system clipboard before the web or mail handler opens, so paste it into the destination when the service supports file attachments. These actions depend on the browser, desktop mail client, or platform handler installed on the computer.
 
+<div style="display: flex; flex-direction: column; gap: 10px;">
 
+  <div style="display: flex; gap: 10px;">
+    <img src="../../../img/share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+  </div>
+
+</div>

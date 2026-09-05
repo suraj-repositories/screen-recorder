@@ -27,227 +27,182 @@ import com.oranbyte.screenrec.constants.Icons;
 @SuppressWarnings("serial")
 public class ToolbarComboBox<E> extends JComboBox<E> {
 
-    private static final Font DEFAULT_FONT = AppConstant.APP_FONT;
+	private static final Font DEFAULT_FONT = AppConstant.APP_FONT;
 
-    private Insets padding = new Insets(7, 11, 7, 11);
+	private Insets padding = new Insets(7, 11, 7, 11);
 
-    private int borderRadius = 10;
+	private int borderRadius = 10;
 
-    @SafeVarargs
-    public ToolbarComboBox(E... items) {
-        super(items);
-        initialize();
-    }
+	@SafeVarargs
+	public ToolbarComboBox(E... items) {
+		super(items);
+		initialize();
+	}
 
-    private void initialize() {
+	private void initialize() {
 
-        setFocusable(false);
-        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		setFocusable(false);
+		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-        setBackground(AppColors.BUTTON);
-        setForeground(AppColors.TEXT);
+		setBackground(AppColors.BUTTON);
+		setForeground(AppColors.TEXT);
 
-        setFont(DEFAULT_FONT);
+		setFont(DEFAULT_FONT);
 
-        setBorder(createBorder(AppColors.BORDER));
+		setBorder(createBorder(AppColors.BORDER));
 
-        setRenderer(new ComboRenderer());
+		setRenderer(new ComboRenderer());
 
-        setUI(new ComboUI());
+		setUI(new ComboUI());
 
-        addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+		addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
 
-            @Override
-            public void popupMenuWillBecomeVisible(
-                    javax.swing.event.PopupMenuEvent e) {
+			@Override
+			public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
 
-                setBackground(AppColors.BUTTON_HOVER);
-                setBorder(createBorder(AppColors.BORDER_HOVER));
-            }
+				setBackground(AppColors.BUTTON_HOVER);
+				setBorder(createBorder(AppColors.BORDER_HOVER));
+			}
 
-            @Override
-            public void popupMenuWillBecomeInvisible(
-                    javax.swing.event.PopupMenuEvent e) {
+			@Override
+			public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {
 
-                setBackground(AppColors.BUTTON);
-                setBorder(createBorder(AppColors.BORDER));
-            }
+				setBackground(AppColors.BUTTON);
+				setBorder(createBorder(AppColors.BORDER));
+			}
 
-            @Override
-            public void popupMenuCanceled(
-                    javax.swing.event.PopupMenuEvent e) {
+			@Override
+			public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {
 
-                setBackground(AppColors.BUTTON);
-                setBorder(createBorder(AppColors.BORDER));
-            }
-        });
+				setBackground(AppColors.BUTTON);
+				setBorder(createBorder(AppColors.BORDER));
+			}
+		});
 
-        setPreferredSize(new Dimension(180, 42));
-    }
+		setPreferredSize(new Dimension(180, 42));
+	}
 
-    private Border createBorder(Color color) {
+	private Border createBorder(Color color) {
 
-        return BorderFactory.createCompoundBorder(
-                new RoundedBorder(color, borderRadius, 1),
-                new EmptyBorder(padding)
-        );
-    }
+		return BorderFactory.createCompoundBorder(new RoundedBorder(color, borderRadius, 1), new EmptyBorder(padding));
+	}
 
-    public ToolbarComboBox<E> setPadding(
-            int top,
-            int left,
-            int bottom,
-            int right) {
+	public ToolbarComboBox<E> setPadding(int top, int left, int bottom, int right) {
 
-        padding = new Insets(top, left, bottom, right);
+		padding = new Insets(top, left, bottom, right);
 
-        setBorder(createBorder(AppColors.BORDER));
+		setBorder(createBorder(AppColors.BORDER));
 
-        repaint();
+		repaint();
 
-        return this;
-    }
+		return this;
+	}
 
-    public ToolbarComboBox<E> setComboFont(int size) {
+	public ToolbarComboBox<E> setComboFont(int size) {
 
-        setFont(DEFAULT_FONT.deriveFont((float) size));
+		setFont(DEFAULT_FONT.deriveFont((float) size));
 
-        repaint();
+		repaint();
 
-        return this;
-    }
+		return this;
+	}
 
-    
-    private class ComboRenderer
-            extends JLabel
-            implements ListCellRenderer<Object> {
+	private class ComboRenderer extends JLabel implements ListCellRenderer<Object> {
 
-        ComboRenderer() {
+		ComboRenderer() {
 
-            setOpaque(true);
+			setOpaque(true);
 
-            setBorder(
-                    new EmptyBorder(
-                            7,
-                            11,
-                            7,
-                            11
-                    )
-            );
+			setBorder(new EmptyBorder(7, 11, 7, 11));
 
-            setFont(DEFAULT_FONT);
+			setFont(DEFAULT_FONT);
 
-            setHorizontalAlignment(LEFT);
-            setVerticalAlignment(CENTER);
+			setHorizontalAlignment(LEFT);
+			setVerticalAlignment(CENTER);
 
-            setIconTextGap(8);
-        }
+			setIconTextGap(8);
+		}
 
-        @Override
-        public Component getListCellRendererComponent(
-                JList<?> list,
-                Object value,
-                int index,
-                boolean isSelected,
-                boolean cellHasFocus) {
- 
-            setIcon(null);
+		@Override
+		public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
+				boolean cellHasFocus) {
 
-            if (value instanceof CaptureMode mode) {
+			setIcon(null);
 
-                setText(mode.getDisplayName());
-                setIcon(mode.getIcon());
+			if (value instanceof CaptureMode mode) {
 
-            } else {
+				setText(mode.getDisplayName());
+				setIcon(mode.getIcon());
 
-                setText(
-                        value == null
-                                ? ""
-                                : value.toString()
-                );
-            }
+			} else {
 
-            if (isSelected) {
+				setText(value == null ? "" : value.toString());
+			}
 
-                setBackground(AppColors.BUTTON_HOVER);
+			if (isSelected) {
 
-            } else {
+				setBackground(AppColors.BUTTON_HOVER);
 
-                setBackground(AppColors.BUTTON);
-            }
+			} else {
 
-            setForeground(AppColors.TEXT);
+				setBackground(AppColors.BUTTON);
+			}
 
-            setFont(ToolbarComboBox.this.getFont());
+			setForeground(AppColors.TEXT);
 
-            return this;
-        }
-    }
- 
-    private class ComboUI extends BasicComboBoxUI {
+			setFont(ToolbarComboBox.this.getFont());
 
-        @Override
-        protected javax.swing.JButton createArrowButton() {
+			return this;
+		}
+	}
 
-            javax.swing.JButton button =
-                    new javax.swing.JButton(Icons.DOWN.icon(24));
+	private class ComboUI extends BasicComboBoxUI {
 
-            button.setBorder(
-                    BorderFactory.createEmptyBorder()
-            );
+		@Override
+		protected javax.swing.JButton createArrowButton() {
 
-            button.setFocusable(false);
-            button.setContentAreaFilled(false);
-            button.setOpaque(false);
+			javax.swing.JButton button = new javax.swing.JButton(Icons.DOWN.icon(24));
 
-            button.setBackground(AppColors.BUTTON);
-            button.setForeground(AppColors.TEXT);
+			button.setBorder(BorderFactory.createEmptyBorder());
 
-            button.setFont(
-                    DEFAULT_FONT.deriveFont(
-                            Font.BOLD,
-                            12f
-                    )
-            );
+			button.setFocusable(false);
+			button.setContentAreaFilled(false);
+			button.setOpaque(false);
 
-            return button;
-        }
+			button.setBackground(AppColors.BUTTON);
+			button.setForeground(AppColors.TEXT);
 
-        @Override
-        protected BasicComboPopup createPopup() {
+			button.setFont(DEFAULT_FONT.deriveFont(Font.BOLD, 12f));
 
-            BasicComboPopup popup =
-                    new BasicComboPopup(comboBox);
+			return button;
+		}
 
-            popup.setBorder(
-                    new LineBorder(AppColors.BORDER)
-            );
+		@Override
+		protected BasicComboPopup createPopup() {
 
-            JList<?> list = popup.getList();
+			BasicComboPopup popup = new BasicComboPopup(comboBox);
 
-            list.setBackground(AppColors.BUTTON);
-            list.setForeground(AppColors.TEXT);
+			popup.setBorder(new LineBorder(AppColors.BORDER));
 
-            list.setSelectionBackground(
-                    AppColors.BUTTON_HOVER
-            );
+			JList<?> list = popup.getList();
 
-            list.setSelectionForeground(
-                    AppColors.TEXT
-            );
+			list.setBackground(AppColors.BUTTON);
+			list.setForeground(AppColors.TEXT);
 
-            return popup;
-        }
-    }
+			list.setSelectionBackground(AppColors.BUTTON_HOVER);
 
-    public void setBorderRadius(int borderRadius) {
+			list.setSelectionForeground(AppColors.TEXT);
 
-        this.borderRadius = borderRadius;
+			return popup;
+		}
+	}
 
-        setBorder(
-                createBorder(AppColors.BORDER)
-        );
+	public void setBorderRadius(int borderRadius) {
 
-        repaint();
-    }
-} 
+		this.borderRadius = borderRadius;
+
+		setBorder(createBorder(AppColors.BORDER));
+
+		repaint();
+	}
+}

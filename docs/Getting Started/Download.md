@@ -7,7 +7,7 @@ Screen Recorder is currently distributed as source code in this repository. Ther
 1. Open the repository in your browser.
 2. Select **Code**, then choose **Download ZIP**, or clone it with Git.
 3. Extract the project to a location you can access from Eclipse.
-4. Continue with [Setup in Eclipse](Setup%20in%20Eclipse.md).
+4. Continue with [Setup in Eclipse](https://box.oranbyte.com/box/docs/screenrecorder/v1.0.2/getting-started/setup-in-eclipse).
 
 The application is currently Windows-first. A Windows environment is required for WASAPI system-audio capture and Windows native integration.
 
