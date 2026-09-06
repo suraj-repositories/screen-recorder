@@ -3,7 +3,7 @@
 <div style="display: flex; flex-direction: column; gap: 10px;">
 
   <div style="display: flex; gap: 10px;">
-    <img src="../../../img/share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+    <img src="share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
   </div>
 
 </div>
