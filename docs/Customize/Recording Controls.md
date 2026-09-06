@@ -4,6 +4,14 @@
 
 The capture-mode menu is available from the main toolbar and the recording controls:
 
+<div style="display: flex; flex-direction: column; gap: 10px;">
+
+  <div style="display: flex; gap: 10px;">
+    <img src="controls.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+  </div>
+
+</div>
+
 | Mode | Behavior |
 | --- | --- |
 | `Rectangle` | Draw a custom area on the screen. |

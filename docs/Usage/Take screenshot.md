@@ -10,7 +10,7 @@
 <div style="display: flex; flex-direction: column; gap: 10px;">
 
   <div style="display: flex; gap: 10px;">
-    <img src="../../img/take-screenshot.png" alt="Screen Recorder" width="99%" />
+    <img src="take-screenshot.png" alt="Screen Recorder" width="99%" />
   </div>
 
 </div>
@@ -26,7 +26,7 @@ Use the toolbar actions to:
 <div style="display: flex; flex-direction: column; gap: 10px;">
 
   <div style="display: flex; gap: 10px;">
-    <img src="../../img/after-screenshot.png" alt="Screen Recorder" width="99%"  />
+    <img src="after-screenshot.png" alt="Screen Recorder" width="99%"  />
   </div>
 
 </div>

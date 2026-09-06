@@ -16,4 +16,4 @@ The recording includes the mouse cursor when Windows makes the cursor image avai
 
 Recordings are written as timestamped MP4 files in the configured `SAVE_LOCATION`, currently the desktop path defined in `AppConstant`. When processing completes, the video opens in the built-in JavaFX media player.
 
-See [Recording Controls](../Customize/Recording%20Controls.md) for the complete control behavior and [Record voice](Record%20voice.md) for microphone capture.
+See [Recording Controls](https://box.oranbyte.com/box/docs/screenrecorder/v1.0.0/customize/recording-controls) for the complete control behavior and [Record voice](https://box.oranbyte.com/box/docs/screenrecorder/v1.0.0/usage/record-voice) for microphone capture.

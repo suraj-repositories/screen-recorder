@@ -13,7 +13,7 @@ Nearby sharing uses the LocalSend provider to find devices on the local network 
 <div style="display: flex; flex-direction: column; gap: 10px;">
 
   <div style="display: flex; gap: 10px;">
-    <img src="../../../img/nearby-share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
+    <img src="nearby-share.png" alt="Screen Recorder" width="100%" style="max-width: 400px"  />
   </div>
 
 </div>

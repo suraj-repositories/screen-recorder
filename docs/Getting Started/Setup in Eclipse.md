@@ -18,8 +18,8 @@
 
 <div style="display: flex; flex-direction: column; gap: 10px;">
   <div style="display: flex; gap: 10px;">
-    <img src="../../img/modulepath.png" alt="Screen Recorder" width="49%"/>
-    <img src="../../img/classpath.png" alt="Screen Recorder" width="49%"/>
+    <img src="modulepath.png" alt="Screen Recorder" width="49%"/>
+    <img src="classpath.png" alt="Screen Recorder" width="49%"/>
   </div>
 </div>
 
