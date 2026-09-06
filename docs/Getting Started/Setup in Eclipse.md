@@ -37,4 +37,4 @@ If the project contains a `module-info.java`, make sure the required modules are
 3. Grant Windows microphone access if microphone capture is needed.
 4. If notifications are enabled, verify that `lib/snoretoast.exe` is present.
 
-The main window should open after JavaFX is initialized. For the first capture, see [Introduction](Introduction.md) and the usage pages.
+The main window should open after JavaFX is initialized. For the first capture, see [Introduction](https://box.oranbyte.com/box/docs/screenrecorder/v1.0.0/getting-started/introduction) and the usage pages.
