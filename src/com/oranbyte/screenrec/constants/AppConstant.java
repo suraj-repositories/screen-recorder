@@ -1,6 +1,8 @@
 package com.oranbyte.screenrec.constants;
 
 import java.awt.Font;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class AppConstant {
@@ -18,6 +20,17 @@ public class AppConstant {
 	public static final int FPS = 50;
 	public static final int NEARBY_SCAN_TIMEOUT = 5;
 
-	public static final String SNORE_TOAST_PATH = Paths.get(System.getProperty("user.dir"), "lib", "snoretoast.exe")
-			.toAbsolutePath().normalize().toString();
+	public static final String SNORE_TOAST_PATH = getSnoreToastPath();
+
+	private static String getSnoreToastPath() {
+		Path path = Paths.get("lib", "snoretoast.exe").toAbsolutePath().normalize();
+
+		if (Files.exists(path)) {
+			return path.toString();
+		}
+
+		path = Paths.get("app", "lib", "snoretoast.exe").toAbsolutePath().normalize();
+
+		return path.toString();
+	}
 }

@@ -7,7 +7,7 @@ import com.oranbyte.screenrec.gui.VideoPlayerPanel;
 public class VideoPlayerFrame extends JFrame {
 
     /**
-	 * 
+	 *  
 	 */
 	private static final long serialVersionUID = 1L;
 	
@@ -15,8 +15,7 @@ public class VideoPlayerFrame extends JFrame {
 
     public VideoPlayerFrame(String videoPath) {
         super("Video Player");
-
-        
+ 
         panel = new VideoPlayerPanel();
 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
