@@ -48,7 +48,7 @@ The application is primarily implemented as a Java desktop application using Swi
 <div style="display: flex; flex-direction: column; gap: 10px;">
 
   <div style="display: flex; gap: 10px;">
-    <img src="screenshots/1.png" alt="Screen Recorder" width="99%" style="border: 2px solid lightgreen"/>
+    <img src="screenshots/oranbyte1.png" alt="Screen Recorder" width="99%" style="border: 2px solid lightgreen"/>
   </div>
 
 </div>
