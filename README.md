@@ -90,4 +90,6 @@ Configure the required JavaFX libraries and native dependencies, then run the ma
 
 ## License
 
-This project is currently under development.
+This project is currently under development and does not contain a formal open-source license declaration. No permission to copy, modify, redistribute, or use the project commercially should be assumed beyond the rights granted by applicable law.
+
+Screen Recorder relies on third-party libraries and technologies. Each dependency remains subject to its own license and terms 
