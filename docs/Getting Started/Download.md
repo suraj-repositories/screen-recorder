@@ -11,7 +11,7 @@ Screen Recorder is currently distributed as source code in this repository. Ther
 
 ## Download the source
 
-1. Open the repository in your browser.
+1. Open the [Screen Recorder Github Repository](https://github.com/suraj-repositories/screen-recorder) in your browser. 
 2. Select **Code**, then choose **Download ZIP**, or clone it with Git.
 3. Extract the project to a location you can access from Eclipse.
 4. Continue with [Setup in Eclipse](https://box.oranbyte.com/box/docs/screenrecorder/v1.0.0/getting-started/setup-in-eclipse).
